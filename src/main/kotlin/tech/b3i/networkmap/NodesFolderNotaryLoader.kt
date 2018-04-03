@@ -20,11 +20,6 @@ class NodesFolderNotaryLoader(@Value("\${nodesFolder}") val nodesFolder: String,
                               @Autowired val serializationEngine: SerializationEngine) : NotaryLoader {
 
     override fun load(): List<NotaryInfo> {
-        return invoke();
-    }
-
-
-    override fun invoke(): List<NotaryInfo> {
         println("Started scanning nodes folder for notaries")
         val configFiles = FileUtils.listFiles(
                 File(nodesFolder),
@@ -70,7 +65,5 @@ private fun NodeInfo.notaryIdentity(): Party {
 }
 
 interface NotaryLoader {
-
     fun load(): List<NotaryInfo>
-    fun invoke(): List<NotaryInfo>
 }

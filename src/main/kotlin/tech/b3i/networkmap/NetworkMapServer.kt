@@ -43,7 +43,7 @@ class NetworkMapServer(
     val networkMapCert: X509Certificate = networkMapCa.certificate
     val keyPair = networkMapCa.keyPair
 
-    private val networkParams = NetworkParameters(1, notaryLoader.invoke(), 10485760, Int.MAX_VALUE, Instant.now(), 10, emptyMap())
+    private val networkParams = NetworkParameters(1, notaryLoader.load(), 10485760, Int.MAX_VALUE, Instant.now(), 10, emptyMap())
     private val executorService = Executors.newSingleThreadExecutor()
     private val networkMap: AtomicReference<SerializedBytes<SignedDataWithCert<NetworkMap>>> = AtomicReference()
 
