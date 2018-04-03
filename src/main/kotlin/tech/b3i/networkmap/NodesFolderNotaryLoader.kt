@@ -64,6 +64,3 @@ private fun NodeInfo.notaryIdentity(): Party {
     }
 }
 
-interface NotaryLoader {
-    fun load(): List<NotaryInfo>
-}

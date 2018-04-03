@@ -6,8 +6,6 @@ import net.corda.core.internal.signWithCert
 import net.corda.core.node.NetworkParameters
 import net.corda.core.serialization.SerializedBytes
 import net.corda.core.serialization.deserialize
-import net.corda.core.serialization.internal.SerializationEnvironmentImpl
-import net.corda.core.serialization.internal.nodeSerializationEnv
 import net.corda.core.serialization.serialize
 import net.corda.nodeapi.internal.DEV_ROOT_CA
 import net.corda.nodeapi.internal.SignedNodeInfo
@@ -15,10 +13,6 @@ import net.corda.nodeapi.internal.crypto.CertificateAndKeyPair
 import net.corda.nodeapi.internal.crypto.CertificateType
 import net.corda.nodeapi.internal.crypto.X509Utilities
 import net.corda.nodeapi.internal.network.NetworkMap
-import net.corda.nodeapi.internal.serialization.AMQP_P2P_CONTEXT
-import net.corda.nodeapi.internal.serialization.AMQP_STORAGE_CONTEXT
-import net.corda.nodeapi.internal.serialization.SerializationFactoryImpl
-import net.corda.nodeapi.internal.serialization.amqp.AMQPServerSerializationScheme
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -52,12 +46,10 @@ class NetworkMapServer(
         networkMap.set(buildNetworkMap())
     }
 
-
     @RequestMapping(path = ["/ping"], method = [RequestMethod.GET])
     fun ping(): ByteArray {
         return "OK".toByteArray()
     }
-
 
     @RequestMapping(path = ["network-map/publish"], method = [RequestMethod.POST])
     fun postNodeInfo(@RequestBody input: ByteArray): DeferredResult<ResponseEntity<String>> {
