@@ -76,14 +76,14 @@ class NetworkMapServer(
 
     @RequestMapping(path = ["network-map"], method = [RequestMethod.GET])
     fun getNetworkMap(): ResponseEntity<ByteArray> {
-        if (networkMap.get() != null) {
+        return if (networkMap.get() != null) {
             val networkMapBytes = networkMap.get().bytes
-            return ResponseEntity.ok()
+            ResponseEntity.ok()
                     .contentLength(networkMapBytes.size.toLong())
                     .contentType(MediaType.APPLICATION_OCTET_STREAM)
                     .body(networkMapBytes);
         } else {
-            return ResponseEntity(HttpStatus.NOT_FOUND)
+            ResponseEntity(HttpStatus.NOT_FOUND)
         }
     }
 

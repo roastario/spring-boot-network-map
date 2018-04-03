@@ -7,16 +7,18 @@ import net.corda.nodeapi.internal.SignedNodeInfo
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import org.sqlite.SQLiteDataSource
-import java.util.concurrent.locks.ReadWriteLock
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import javax.annotation.PostConstruct
+import kotlin.concurrent.read
+import kotlin.concurrent.write
 
 
 @Component
 class SqlLiteNetworkMapPersistance(@Value("\${db.location:network_map.db}") dbLocation: String) : NetworkMapPersistance {
 
-    private val JDBC_STRING = "jdbc:sqlite:"+dbLocation
+    private val JDBC_STRING = "jdbc:sqlite:" + dbLocation
     private val dataSource: SQLiteDataSource = SQLiteDataSource()
+
     init {
         dataSource.url = JDBC_STRING
     }
@@ -39,14 +41,14 @@ class SqlLiteNetworkMapPersistance(@Value("\${db.location:network_map.db}") dbLo
 
         private val GET_ALL_HASHES_SQL = "SELECT hash FROM SIGNED_NODE_INFOS;"
 
-        private val globalLock: ReadWriteLock = ReentrantReadWriteLock()
+        private val globalLock: ReentrantReadWriteLock = ReentrantReadWriteLock()
 
     }
 
 
     @PostConstruct
-    fun connect(): Unit {
-        globalLock.takeAndUseWriteLock {
+    fun connect() {
+        globalLock.read {
             dataSource.connection.use {
                 it.createStatement().execute(BUILD_TABLE_SQL)
                 it.createStatement().execute(BUILD_INDEX_SQL)
@@ -56,7 +58,7 @@ class SqlLiteNetworkMapPersistance(@Value("\${db.location:network_map.db}") dbLo
     }
 
     override fun persistSignedNodeInfo(signedNodeInfo: SignedNodeInfo) {
-        globalLock.takeAndUseWriteLock {
+        globalLock.write {
             dataSource.connection.use {
                 it.prepareStatement(INSERT_SIGNED_NODE_INFO_SQL).use { preparedStatement ->
                     preparedStatement.setString(1, signedNodeInfo.raw.hash.toString())
@@ -69,7 +71,7 @@ class SqlLiteNetworkMapPersistance(@Value("\${db.location:network_map.db}") dbLo
     }
 
     override fun getSignedNodeInfo(hash: String): Pair<SignedNodeInfo, ByteArray> {
-        return globalLock.takeAndUseReadLock {
+        return globalLock.write {
             dataSource.connection.use {
                 it.prepareStatement(GET_NODE_INFO_SQL).use({ preparedStatement ->
                     preparedStatement.setString(1, hash)
@@ -82,7 +84,7 @@ class SqlLiteNetworkMapPersistance(@Value("\${db.location:network_map.db}") dbLo
     }
 
     override fun getAllHashes(): List<SecureHash> {
-        return globalLock.takeAndUseReadLock {
+        return globalLock.read {
             dataSource.connection.use {
                 val resultSet = it.prepareStatement(GET_ALL_HASHES_SQL).executeQuery()
                 val results = mutableListOf<SecureHash>()
@@ -91,27 +93,6 @@ class SqlLiteNetworkMapPersistance(@Value("\${db.location:network_map.db}") dbLo
                 }
                 results;
             }
-        }
-    }
-
-
-    fun <T> ReadWriteLock.takeAndUseReadLock(block: () -> T): T {
-        val readLock = this.readLock()
-        readLock.lock()
-        try {
-            return block.invoke()
-        } finally {
-            readLock.unlock()
-        }
-    }
-
-    fun <T> ReadWriteLock.takeAndUseWriteLock(block: () -> T): T {
-        val writeLock = this.writeLock()
-        writeLock.lock()
-        try {
-            return block.invoke()
-        } finally {
-            writeLock.unlock()
         }
     }
 }
