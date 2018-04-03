@@ -35,7 +35,8 @@ import javax.security.auth.x500.X500Principal
 @RestController
 class NetworkMapServer(
         @Autowired val networkMapPersistance: NetworkMapPersistance,
-        @Autowired val notaryLoader: NotaryLoader
+        @Autowired val notaryLoader: NotaryLoader,
+        @Autowired val serializationEngine: SerializationEngine
 ) {
 
     val networkMapCa = createDevNetworkMapCa2(DEV_ROOT_CA)
@@ -48,18 +49,6 @@ class NetworkMapServer(
 
 
     init {
-        if (nodeSerializationEnv == null) {
-            val classloader = this.javaClass.classLoader
-            nodeSerializationEnv = SerializationEnvironmentImpl(
-                    SerializationFactoryImpl().apply {
-                        registerScheme(AMQPServerSerializationScheme(emptyList()))
-                    },
-                    p2pContext = AMQP_P2P_CONTEXT.withClassLoader(classloader),
-                    rpcServerContext = AMQP_P2P_CONTEXT.withClassLoader(classloader),
-                    storageContext = AMQP_STORAGE_CONTEXT.withClassLoader(classloader),
-                    checkpointContext = AMQP_P2P_CONTEXT.withClassLoader(classloader)
-            )
-        }
         networkMap.set(buildNetworkMap())
     }
 
