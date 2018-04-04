@@ -11,18 +11,27 @@ import org.apache.commons.io.filefilter.DirectoryFileFilter
 import org.apache.commons.io.filefilter.RegexFileFilter
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.ApplicationContext
 import org.springframework.stereotype.Component
-import java.io.File
+import org.springframework.util.ResourceUtils
 
 
 @Component
-class NodesFolderNotaryLoader(@Value("\${nodesFolder}") val nodesFolder: String,
-                              @Autowired val serializationEngine: SerializationEngine) : NotaryLoader {
+class NodesFolderNotaryLoader(@Value("\${nodesFolder:notary}") val nodesFolder: String,
+                              @Autowired val serializationEngine: SerializationEngine,
+                              @Autowired val applicationContext: ApplicationContext) : NotaryLoader {
+
+    val LOG_MESSAGE = "Found %s of notary node-info files in the %s directory!"
+    val CLASSPATH = "classpath:%s"
 
     override fun load(): List<NotaryInfo> {
         println("Started scanning nodes folder for notaries")
+        val notary_nodeInfos = ResourceUtils.getFile(String.format(CLASSPATH, nodesFolder))
+
+        println(String.format(LOG_MESSAGE, notary_nodeInfos.list()?.size, notary_nodeInfos))
+
         val configFiles = FileUtils.listFiles(
-                File(nodesFolder),
+                notary_nodeInfos,
                 RegexFileFilter("node.conf"),
                 DirectoryFileFilter.DIRECTORY
         )

@@ -1,6 +1,7 @@
 package tech.b3i.networkmap
 
 import net.corda.core.crypto.Crypto
+import net.corda.core.crypto.SecureHash
 import net.corda.core.internal.SignedDataWithCert
 import net.corda.core.internal.signWithCert
 import net.corda.core.node.NetworkParameters
@@ -85,6 +86,12 @@ class NetworkMapServer(
         } else {
             ResponseEntity(HttpStatus.NOT_FOUND)
         }
+    }
+
+    @RequestMapping(method = [RequestMethod.GET], path = ["network-map/network-parameters/{hash}"], produces = [MediaType.APPLICATION_OCTET_STREAM_VALUE])
+    fun handleNetworkParam(@PathVariable("hash") h: String): ByteArray {
+        // Retrieve the signed network parameters (see below). The entire object is signed with the network map certificate which is also attached.
+        return networkParams.signWithCert(keyPair.private, networkMapCert).serialize().bytes
     }
 
     fun buildNetworkMap(): SerializedBytes<SignedDataWithCert<NetworkMap>> {
