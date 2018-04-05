@@ -109,7 +109,7 @@ class NetworkMapApi(
     }
 
     @RequestMapping(method = [RequestMethod.GET], path = ["network-map/network-parameters/{hash}"], produces = [MediaType.APPLICATION_OCTET_STREAM_VALUE])
-    fun handleNetworkParam(@PathVariable("hash") h: String): ResponseEntity<ByteArray> {
+    fun getNetworkParams(@PathVariable("hash") h: String): ResponseEntity<ByteArray> {
         return if (SecureHash.parse(h) == networkParametersHash) {
             ResponseEntity.ok().header("Cache-Control", "max-age=${ThreadLocalRandom.current().nextInt(10, 30)}")
                     .body(networkParams.signWithCert(keyPair.private, networkMapCert).serialize().bytes)
