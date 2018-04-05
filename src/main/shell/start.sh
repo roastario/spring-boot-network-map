@@ -1,9 +1,6 @@
 #!/bin/bash
 
-echo boot jar: ${JAR_FILE}
-echo location of nodes: ${NODES_DIR}
-
-PROPERTIES=""
+echo "starting network map service"
 
 # start the server
-exec java -Djava.security.egd=file:/dev/urandom ${PROFILE} ${PROPERTIES} ${DIST} ${SECURITY} -jar /app.jar
+exec java -Djava.security.egd=file:/dev/urandom -jar /app.jar --nodesFolder=/opt/nodes
