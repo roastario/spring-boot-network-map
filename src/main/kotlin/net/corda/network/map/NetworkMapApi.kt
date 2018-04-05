@@ -58,23 +58,26 @@ class NetworkMapApi(
 
     init {
 
-        networkParams = NetworkParameters(
-                minimumPlatformVersion = 1,
-                notaries = notaryInfoLoader.load(),
-                maxMessageSize = 10485760,
-                maxTransactionSize = Int.MAX_VALUE,
-                modifiedTime = Instant.now(),
-                epoch = 10,
-                whitelistedContractImplementations = emptyMap())
+        val latestNetworkParams = networkParamsRepository.getLatestNetworkParams()
 
-        networkParametersHash = networkParams.serialize().hash
+        if (latestNetworkParams != null) {
+            networkParams = latestNetworkParams.first
+            networkParametersHash = latestNetworkParams.second
+        } else {
+            networkParams = NetworkParameters(
+                    minimumPlatformVersion = 1,
+                    notaries = notaryInfoLoader.load(),
+                    maxMessageSize = 10485760,
+                    maxTransactionSize = Int.MAX_VALUE,
+                    modifiedTime = Instant.now(),
+                    epoch = 10,
+                    whitelistedContractImplementations = emptyMap())
 
-        val signedNetworkParams = networkParams.signWithCert(keyPair.private, networkMapCert)
-
-        networkParamsRepository.persistNetworkParams(networkParams, signedNetworkParams.raw.hash)
-
+            networkParametersHash = networkParams.serialize().hash
+            val signedNetworkParams = networkParams.signWithCert(keyPair.private, networkMapCert)
+            networkParamsRepository.persistNetworkParams(networkParams, signedNetworkParams.raw.hash)
+        }
         networkMap.set(buildNetworkMap())
-
     }
 
     @RequestMapping(path = ["/ping"], method = [RequestMethod.GET])

@@ -44,7 +44,6 @@ class SqlLiteNetworkParamsRepository(@Value("\${db.location:network_map.db}") db
                 it.createStatement().execute(BUILD_TABLE_SQL)
                 it.createStatement().execute(BUILD_INDEX_SQL)
             }
-
         }
     }
 
@@ -55,14 +54,13 @@ class SqlLiteNetworkParamsRepository(@Value("\${db.location:network_map.db}") db
                     preparedStatement.setString(1, hash.toString())
                     preparedStatement.setBytes(2, networkParams.serialize().bytes)
                     val rowsInserted = if (preparedStatement.execute()) 0 else preparedStatement.updateCount
-                    println(rowsInserted)
                 }
             }
         }
     }
 
     override fun getNetworkParams(hash: SecureHash): Pair<NetworkParameters, ByteArray> {
-        return globalLock.write {
+        return globalLock.read {
             dataSource.connection.use {
                 it.prepareStatement(GET_NETWORK_PARAMETERS_SQL).use({ preparedStatement ->
                     preparedStatement.setString(1, hash.toString())
@@ -74,8 +72,21 @@ class SqlLiteNetworkParamsRepository(@Value("\${db.location:network_map.db}") db
         }
     }
 
-    override fun getLatestNetworkParams(): Pair<NetworkParameters, SecureHash> {
-        TODO("not implemented")
+    override fun getLatestNetworkParams(): Pair<NetworkParameters, SecureHash>? {
+        return globalLock.read {
+            dataSource.connection.use {
+                it.prepareStatement(GET_LATEST_NETWORK_SQL).use({ preparedStatement ->
+                    val executedResults = preparedStatement.executeQuery()
+                    if (executedResults.next()) {
+                        val hash = executedResults.getString(1)
+                        val bytes = executedResults.getBytes(2)
+                        bytes.deserialize<NetworkParameters>() to SecureHash.parse(hash)
+                    } else {
+                        null
+                    }
+                })
+            }
+        }
     }
 
 
@@ -96,7 +107,6 @@ class SqlLiteNetworkParamsRepository(@Value("\${db.location:network_map.db}") db
     companion object {
 
         private const val BUILD_TABLE_SQL = "CREATE TABLE IF NOT EXISTS NETWORK_PARAMETERS (\n" +
-                "  insert_counter INTEGER PRIMARY KEY AUTOINCREMENT,\n" +
                 "  hash           TEXT UNIQUE,\n" +
                 "  data           BLOB NOT NULL\n" +
                 ");"
@@ -112,7 +122,7 @@ class SqlLiteNetworkParamsRepository(@Value("\${db.location:network_map.db}") db
 
         private const val GET_ALL_HASHES_SQL = "SELECT hash FROM NETWORK_PARAMETERS;"
 
-//        private const val GET_LATEST_NETWORK_
+        private const val GET_LATEST_NETWORK_SQL = "SELECT hash,data FROM NETWORK_PARAMETERS ORDER BY ROWID DESC LIMIT 1"
 
         private val globalLock: ReentrantReadWriteLock = ReentrantReadWriteLock()
 

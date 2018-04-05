@@ -15,5 +15,5 @@ interface NetworkParamsRepository {
     fun persistNetworkParams(networkParams: NetworkParameters, hash: SecureHash)
     fun getNetworkParams(hash: SecureHash): Pair<NetworkParameters, ByteArray>
     fun getAllHashes(): List<SecureHash>
-    fun getLatestNetworkParams(): Pair<NetworkParameters, SecureHash>
+    fun getLatestNetworkParams(): Pair<NetworkParameters, SecureHash>?
 }
