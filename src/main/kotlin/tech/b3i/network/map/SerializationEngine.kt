@@ -1,4 +1,9 @@
-package tech.b3i.networkmap
+/*
+ * Copyright (c) 2018. B3i Switzerland. All rights reserved.
+ *
+ * http://www.b3i.tech
+ */
+package tech.b3i.network.map
 
 import net.corda.core.serialization.internal.SerializationEnvironmentImpl
 import net.corda.core.serialization.internal.nodeSerializationEnv
@@ -9,8 +14,8 @@ import net.corda.nodeapi.internal.serialization.amqp.AMQPServerSerializationSche
 import org.springframework.stereotype.Component
 
 @Component
-class SerializationEngine{
-    init{
+class SerializationEngine {
+    init {
         if (nodeSerializationEnv == null) {
             val classloader = this.javaClass.classLoader
             nodeSerializationEnv = SerializationEnvironmentImpl(
