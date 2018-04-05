@@ -81,7 +81,7 @@ class NetworkMapApi(
         val result = DeferredResult<ResponseEntity<String>>()
         executorService.submit({
             networkMap.set(buildNetworkMap())
-            result.setResult(ResponseEntity.ok().header("Cache-Control", "max-age=${ThreadLocalRandom.current().nextInt(10, 30)}").body("OK"))
+            result.setResult(ResponseEntity.ok().body("OK"))
         })
         return result
     }
@@ -102,6 +102,7 @@ class NetworkMapApi(
             ResponseEntity.ok()
                     .contentLength(networkMapBytes.size.toLong())
                     .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .header("Cache-Control", "max-age=${ThreadLocalRandom.current().nextInt(10, 30)}")
                     .body(networkMapBytes)
         } else {
             ResponseEntity(HttpStatus.NOT_FOUND)
