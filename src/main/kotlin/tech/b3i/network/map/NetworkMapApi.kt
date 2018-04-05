@@ -1,4 +1,9 @@
-package tech.b3i.networkmap
+/*
+ * Copyright (c) 2018. B3i Switzerland. All rights reserved.
+ *
+ * http://www.b3i.tech
+ */
+package tech.b3i.network.map
 
 import javassist.NotFoundException
 import net.corda.core.crypto.Crypto
@@ -27,20 +32,31 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
 import javax.security.auth.x500.X500Principal
 
-
+/**
+ * API for serving the Network Map over HTTP to clients.
+ *
+ * Note that serializationEngine must remain as an Autowired parameter, even though its not explicitly used
+ * by this class. Its needed to initialize the serialization engines in Corda.
+ */
 @RestController
-class NetworkMapServer(
-        @Autowired val networkMapPersistance: NetworkMapPersistance,
-        @Autowired val notaryLoader: NotaryLoader,
-        @Autowired val serializationEngine: SerializationEngine
+class NetworkMapApi(
+        @Autowired private val nodeInfoRepository: NodeInfoRepository,
+        @Autowired private val notaryInfoLoader: NotaryInfoLoader,
+        @Suppress("unused") @Autowired private val serializationEngine: SerializationEngine
 ) {
 
-    val networkMapCa = createDevNetworkMapCa2(DEV_ROOT_CA)
-    val networkMapCert: X509Certificate = networkMapCa.certificate
-    val keyPair = networkMapCa.keyPair
+    private val networkMapCa = createDevNetworkMapCa(DEV_ROOT_CA)
+    private val networkMapCert: X509Certificate = networkMapCa.certificate
+    private val keyPair = networkMapCa.keyPair
 
-    private val networkParams = NetworkParameters(1, notaryLoader.load(), 10485760, Int.MAX_VALUE, Instant.now(), 10, emptyMap())
-    private val networkParametersHash = networkParams.serialize().hash
+    private val networkParams = NetworkParameters(
+            minimumPlatformVersion = 1,
+            notaries = notaryInfoLoader.load(),
+            maxMessageSize = 10485760,
+            maxTransactionSize = Int.MAX_VALUE,
+            modifiedTime = Instant.now(),
+            epoch = 10,
+            whitelistedContractImplementations = emptyMap())
     private val executorService = Executors.newSingleThreadExecutor()
     private val networkMap: AtomicReference<SerializedBytes<SignedDataWithCert<NetworkMap>>> = AtomicReference()
 
@@ -57,24 +73,23 @@ class NetworkMapServer(
     @RequestMapping(path = ["network-map/publish"], method = [RequestMethod.POST])
     fun postNodeInfo(@RequestBody input: ByteArray): DeferredResult<ResponseEntity<String>> {
         val deserializedSignedNodeInfo = input.deserialize<SignedNodeInfo>()
-        val deserializedNodeInfo = deserializedSignedNodeInfo.raw.deserialize()
         deserializedSignedNodeInfo.verified()
-        networkMapPersistance.persistSignedNodeInfo(deserializedSignedNodeInfo)
+        nodeInfoRepository.persistSignedNodeInfo(deserializedSignedNodeInfo)
         val result = DeferredResult<ResponseEntity<String>>()
         executorService.submit({
             networkMap.set(buildNetworkMap())
             result.setResult(ResponseEntity.ok("OK"))
         })
-        return result;
+        return result
     }
 
     @RequestMapping(path = ["network-map/node-info/{hash}"], method = [RequestMethod.GET])
     fun getNodeInfo(@PathVariable("hash") input: String): ResponseEntity<ByteArray>? {
-        val (signed, bytes) = networkMapPersistance.getSignedNodeInfo(input)
+        val (_, bytes) = nodeInfoRepository.getSignedNodeInfo(input)
         return ResponseEntity.ok()
                 .contentLength(bytes.size.toLong())
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .body(bytes);
+                .body(bytes)
     }
 
     @RequestMapping(path = ["network-map"], method = [RequestMethod.GET])
@@ -84,7 +99,7 @@ class NetworkMapServer(
             ResponseEntity.ok()
                     .contentLength(networkMapBytes.size.toLong())
                     .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                    .body(networkMapBytes);
+                    .body(networkMapBytes)
         } else {
             ResponseEntity(HttpStatus.NOT_FOUND)
         }
@@ -99,14 +114,14 @@ class NetworkMapServer(
         }
     }
 
-    fun buildNetworkMap(): SerializedBytes<SignedDataWithCert<NetworkMap>> {
-        val allNodes = networkMapPersistance.getAllHashes()
+    private fun buildNetworkMap(): SerializedBytes<SignedDataWithCert<NetworkMap>> {
+        val allNodes = nodeInfoRepository.getAllHashes()
         val signedNetworkParams = networkParams.signWithCert(keyPair.private, networkMapCert)
         return NetworkMap(allNodes, signedNetworkParams.raw.hash, null).signWithCert(keyPair.private, networkMapCert).serialize()
     }
 
 
-    fun createDevNetworkMapCa2(rootCa: CertificateAndKeyPair): CertificateAndKeyPair {
+    private fun createDevNetworkMapCa(rootCa: CertificateAndKeyPair): CertificateAndKeyPair {
         val keyPair = Crypto.generateKeyPair()
         val cert = X509Utilities.createCertificate(
                 CertificateType.NETWORK_MAP,

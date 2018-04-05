@@ -1,0 +1,2 @@
+Put the node info config files in here for the notary nodes. Another option is to use
+a configuration property on starting up that specifies the directory to load the node infos from.
