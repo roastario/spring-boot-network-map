@@ -15,19 +15,21 @@ import org.apache.commons.io.FileUtils
 import org.apache.commons.io.filefilter.DirectoryFileFilter
 import org.apache.commons.io.filefilter.RegexFileFilter
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.ApplicationContext
 import org.springframework.stereotype.Component
 import org.springframework.util.ResourceUtils
 import tech.b3i.network.map.NotaryInfoLoader
 
 
 @Component
-class FilesystemNotaryInfoLoader(
-        @Value("\${nodesDirectoryUrl:classpath:nodes}") private val nodesDirectoryUrl: String)
+class FilesystemNotaryInfoLoader(@Autowired val context: ApplicationContext,
+                                 @Value("\${nodesDirectoryUrl:classpath:nodes}") private val nodesDirectoryUrl: String)
     : NotaryInfoLoader {
 
     override fun load(): List<NotaryInfo> {
-        val nodesDirectory = ResourceUtils.getFile(nodesDirectoryUrl)
+        val nodesDirectory = context.getResource(nodesDirectoryUrl).file
         log.info("Started scanning nodes directory ${nodesDirectory.absolutePath} for notaries in node.conf files")
         val configFiles = FileUtils.listFiles(
                 nodesDirectory,
