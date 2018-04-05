@@ -23,7 +23,9 @@ import org.springframework.web.bind.annotation.*
 import org.springframework.web.context.request.async.DeferredResult
 import java.security.cert.X509Certificate
 import java.time.Instant
+import java.util.*
 import java.util.concurrent.Executors
+import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicReference
 import javax.security.auth.x500.X500Principal
 
@@ -92,9 +94,10 @@ class NetworkMapServer(
 
     @RequestMapping(method = [RequestMethod.GET], path = ["network-map/network-parameters/{hash}"], produces = [MediaType.APPLICATION_OCTET_STREAM_VALUE])
     fun handleNetworkParam(@PathVariable("hash") h: String): ResponseEntity<ByteArray> {
-        return if (SecureHash.parse(h) == networkParametersHash){
-            ResponseEntity.ok().body(networkParams.signWithCert(keyPair.private, networkMapCert).serialize().bytes)
-        }else{
+        return if (SecureHash.parse(h) == networkParametersHash) {
+            ResponseEntity.ok().header("Cache-Control", "max-age=${ThreadLocalRandom.current().nextInt(10, 30)}")
+                    .body(networkParams.signWithCert(keyPair.private, networkMapCert).serialize().bytes)
+        } else {
             ResponseEntity.notFound().build<ByteArray>()
         }
     }
