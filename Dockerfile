@@ -6,8 +6,8 @@ ARG NODES_DIR
 RUN apk --no-cache --update add bash
 
 RUN mkdir -p /opt/nodes
-COPY ${NODES_DIR} /opt/nodes/
-ADD ${JAR_FILE} app.jar
+COPY nodes /opt/nodes/
+ADD build/libs/spring-boot-network-map.jar app.jar
 COPY src/main/shell/start.sh start.sh
 RUN chmod +x start.sh
 EXPOSE 8080
