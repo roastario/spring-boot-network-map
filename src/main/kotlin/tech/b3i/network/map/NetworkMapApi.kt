@@ -59,6 +59,7 @@ class NetworkMapApi(
             modifiedTime = Instant.now(),
             epoch = 10,
             whitelistedContractImplementations = emptyMap())
+    private val networkParametersHash = networkParams.serialize().hash
     private val executorService = Executors.newSingleThreadExecutor()
     private val networkMap: AtomicReference<SerializedBytes<SignedDataWithCert<NetworkMap>>> = AtomicReference()
 
@@ -80,7 +81,7 @@ class NetworkMapApi(
         val result = DeferredResult<ResponseEntity<String>>()
         executorService.submit({
             networkMap.set(buildNetworkMap())
-            result.setResult(ResponseEntity.ok("OK"))
+            result.setResult(ResponseEntity.ok().header("Cache-Control", "max-age=${ThreadLocalRandom.current().nextInt(10, 30)}").body("OK"))
         })
         return result
     }
