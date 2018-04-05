@@ -5,7 +5,9 @@
  */
 package tech.b3i.network.map
 
+import javassist.NotFoundException
 import net.corda.core.crypto.Crypto
+import net.corda.core.crypto.SecureHash
 import net.corda.core.internal.SignedDataWithCert
 import net.corda.core.internal.signWithCert
 import net.corda.core.node.NetworkParameters
@@ -100,6 +102,15 @@ class NetworkMapApi(
                     .body(networkMapBytes)
         } else {
             ResponseEntity(HttpStatus.NOT_FOUND)
+        }
+    }
+
+    @RequestMapping(method = [RequestMethod.GET], path = ["network-map/network-parameters/{hash}"], produces = [MediaType.APPLICATION_OCTET_STREAM_VALUE])
+    fun handleNetworkParam(@PathVariable("hash") h: String): ResponseEntity<ByteArray> {
+        return if (SecureHash.parse(h) == networkParametersHash){
+            ResponseEntity.ok().body(networkParams.signWithCert(keyPair.private, networkMapCert).serialize().bytes)
+        }else{
+            ResponseEntity.notFound().build<ByteArray>()
         }
     }
 
