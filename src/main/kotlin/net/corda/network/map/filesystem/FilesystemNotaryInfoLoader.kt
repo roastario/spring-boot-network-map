@@ -3,7 +3,7 @@
  *
  * http://www.b3i.tech
  */
-package tech.b3i.network.map.filesystem
+package net.corda.network.map.filesystem
 
 import com.typesafe.config.ConfigFactory
 import net.corda.core.identity.Party
@@ -20,7 +20,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.ApplicationContext
 import org.springframework.stereotype.Component
 import org.springframework.util.ResourceUtils
-import tech.b3i.network.map.NotaryInfoLoader
+import net.corda.network.map.NotaryInfoLoader
 
 
 @Component

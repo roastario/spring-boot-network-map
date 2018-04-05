@@ -3,7 +3,7 @@
  *
  * http://www.b3i.tech
  */
-package tech.b3i.network.map.sqllite
+package net.corda.network.map.sqllite
 
 import net.corda.core.crypto.SecureHash
 import net.corda.core.serialization.deserialize
@@ -12,7 +12,7 @@ import net.corda.nodeapi.internal.SignedNodeInfo
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Repository
 import org.sqlite.SQLiteDataSource
-import tech.b3i.network.map.NodeInfoRepository
+import net.corda.network.map.NodeInfoRepository
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import javax.annotation.PostConstruct
 import kotlin.concurrent.read

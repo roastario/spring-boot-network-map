@@ -3,7 +3,7 @@
  *
  * http://www.b3i.tech
  */
-package tech.b3i.network.map
+package net.corda.network.map
 
 import net.corda.core.serialization.internal.SerializationEnvironmentImpl
 import net.corda.core.serialization.internal.nodeSerializationEnv

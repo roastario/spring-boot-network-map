@@ -3,7 +3,7 @@
  *
  * http://www.b3i.tech
  */
-package tech.b3i.network.map
+package net.corda.network.map
 
 import net.corda.core.crypto.Crypto
 import net.corda.core.crypto.SecureHash
@@ -41,6 +41,7 @@ import javax.security.auth.x500.X500Principal
 @RestController
 class NetworkMapApi(
         @Autowired private val nodeInfoRepository: NodeInfoRepository,
+        @Autowired private val networkParamsRepository: NetworkParamsRepository,
         @Autowired private val notaryInfoLoader: NotaryInfoLoader,
         @Suppress("unused") @Autowired private val serializationEngine: SerializationEngine
 ) {
@@ -49,21 +50,31 @@ class NetworkMapApi(
     private val networkMapCert: X509Certificate = networkMapCa.certificate
     private val keyPair = networkMapCa.keyPair
 
-    private val networkParams = NetworkParameters(
-            minimumPlatformVersion = 1,
-            notaries = notaryInfoLoader.load(),
-            maxMessageSize = 10485760,
-            maxTransactionSize = Int.MAX_VALUE,
-            modifiedTime = Instant.now(),
-            epoch = 10,
-            whitelistedContractImplementations = emptyMap())
-    private val networkParametersHash = networkParams.serialize().hash
+    private val networkParams: NetworkParameters;
+    private val networkParametersHash: SecureHash;
     private val executorService = Executors.newSingleThreadExecutor()
     private val networkMap: AtomicReference<SerializedBytes<SignedDataWithCert<NetworkMap>>> = AtomicReference()
 
 
     init {
+
+        networkParams = NetworkParameters(
+                minimumPlatformVersion = 1,
+                notaries = notaryInfoLoader.load(),
+                maxMessageSize = 10485760,
+                maxTransactionSize = Int.MAX_VALUE,
+                modifiedTime = Instant.now(),
+                epoch = 10,
+                whitelistedContractImplementations = emptyMap())
+
+        networkParametersHash = networkParams.serialize().hash
+
+        val signedNetworkParams = networkParams.signWithCert(keyPair.private, networkMapCert)
+
+        networkParamsRepository.persistNetworkParams(networkParams, signedNetworkParams.raw.hash)
+
         networkMap.set(buildNetworkMap())
+
     }
 
     @RequestMapping(path = ["/ping"], method = [RequestMethod.GET])

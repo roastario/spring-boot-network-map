@@ -3,7 +3,7 @@
  *
  * http://www.b3i.tech
  */
-package tech.b3i.network.map
+package net.corda.network.map
 
 import org.springframework.boot.SpringApplication
 import org.springframework.boot.autoconfigure.SpringBootApplication
@@ -13,7 +13,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
  *
  * @author Stephen Houston (steve) on 04/04/2018.
  */
-@SpringBootApplication(scanBasePackages = ["tech.b3i.network.map"])
+@SpringBootApplication(scanBasePackages = ["net.corda.network.map"])
 open class NetworkMapApplication
 
 /**
