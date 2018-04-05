@@ -18,6 +18,7 @@ buildscript {
 
 plugins {
     id 'org.springframework.boot' version '1.5.10.RELEASE'
+    id 'com.palantir.docker' version '0.19.1'
 }
 
 repositories {
@@ -26,10 +27,16 @@ repositories {
     jcenter()
 }
 
+group = "net.corda"
+version = "0.1-SNAPSHOT"
+
 apply plugin: 'kotlin'
 apply plugin: 'idea'
 apply plugin: 'java'
 apply plugin: 'kotlin-noarg'
+apply plugin: 'com.palantir.docker'
+
+
 
 ext {
     spring_version = '1.5.10.RELEASE'
@@ -65,4 +72,10 @@ compileJava {
     sourceCompatibility = 1.8
     targetCompatibility = 1.8
     options.encoding = 'UTF-8'
+}
+
+docker {
+    name "${project.group}/${jar.baseName}"
+    copySpec.into(".").from("src/main/shell/start.sh").from(jar.archivePath)
+    buildArgs(['JAR_FILE': "${jar.archiveName}"])
 }
