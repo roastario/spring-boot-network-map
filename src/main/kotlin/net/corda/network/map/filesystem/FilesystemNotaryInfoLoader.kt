@@ -10,6 +10,7 @@ import net.corda.core.identity.Party
 import net.corda.core.internal.readObject
 import net.corda.core.node.NodeInfo
 import net.corda.core.node.NotaryInfo
+import net.corda.network.map.NotaryInfoLoader
 import net.corda.nodeapi.internal.SignedNodeInfo
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.filefilter.DirectoryFileFilter
@@ -19,8 +20,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.ApplicationContext
 import org.springframework.stereotype.Component
-import org.springframework.util.ResourceUtils
-import net.corda.network.map.NotaryInfoLoader
 
 
 @Component
