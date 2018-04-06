@@ -22,6 +22,7 @@ import javax.annotation.PostConstruct
 @Repository
 class SqlLiteNodeInfoRepository(@Value("\${db.location:network_map.db}") dbLocation: String,
                                 @SuppressWarnings("unused") @Autowired ignored: SerializationEngine) : SqlLiteRepository(dbLocation), NodeInfoRepository {
+
     @PostConstruct
     fun connect() {
         dataSource.write {
@@ -63,8 +64,14 @@ class SqlLiteNodeInfoRepository(@Value("\${db.location:network_map.db}") dbLocat
         }
     }
 
+    override fun purgeAllPersistedSignedNodeInfos() : Int {
+        return dataSource.write {
+            it.prepareStatement(DELETE_ALL_NODE_INFO_SQL).executeUpdate()
+        }
+    }
 
     companion object {
+
         private const val BUILD_TABLE_SQL = ("CREATE TABLE IF NOT EXISTS SIGNED_NODE_INFOS (\n"
                 + "	hash TEXT PRIMARY KEY,\n"
                 + "	data BLOB NOT NULL\n"
@@ -80,6 +87,9 @@ class SqlLiteNodeInfoRepository(@Value("\${db.location:network_map.db}") dbLocat
                 "SELECT data FROM SIGNED_NODE_INFOS WHERE hash=?;"
 
         private const val GET_ALL_HASHES_SQL = "SELECT hash FROM SIGNED_NODE_INFOS;"
+
+        private const val DELETE_ALL_NODE_INFO_SQL =
+                "DELETE FROM SIGNED_NODE_INFOS;"
     }
 }
 
