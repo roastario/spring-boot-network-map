@@ -15,4 +15,5 @@ interface NodeInfoRepository {
     fun persistSignedNodeInfo(signedNodeInfo: SignedNodeInfo)
     fun getSignedNodeInfo(hash: String): Pair<SignedNodeInfo, ByteArray>
     fun getAllHashes(): List<SecureHash>
+    fun purgeAllPersistedSignedNodeInfos() : Int
 }

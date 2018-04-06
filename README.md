@@ -21,7 +21,14 @@ The network-map service requires the notaries that will comprise the compatibili
 
 java -jar
 
+    Use of --nodesDirectoryUrl is optional.  The app defaults the location_of_folder_containing_notary_nodes to classpath:nodes.
+    
     java -jar <path_to_artifact> --nodesDirectoryUrl=<location_of_folder_containing_notary_nodes>
+
+Note: The application
+leverages sqlite to persiste notaries.  If the application has been started, the nodes directory has been processed, and the 
+node information has been persisted then start up will read from the database and no longer look to the nodes directory.  If you 
+wish to reload.  Simply delete the /<workspace_path>/spring-boot-network-map/network_map.db    
     
 docker
     
