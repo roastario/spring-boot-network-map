@@ -5,6 +5,7 @@
  */
 package net.corda.network.map
 
+import com.typesafe.config.ConfigRenderOptions
 import net.corda.core.crypto.Crypto
 import net.corda.core.crypto.SecureHash
 import net.corda.core.internal.SignedDataWithCert
@@ -16,6 +17,7 @@ import net.corda.core.serialization.serialize
 import net.corda.core.utilities.loggerFor
 import net.corda.nodeapi.internal.DEV_ROOT_CA
 import net.corda.nodeapi.internal.SignedNodeInfo
+import net.corda.nodeapi.internal.config.toConfig
 import net.corda.nodeapi.internal.createDevKeyStores
 import net.corda.nodeapi.internal.crypto.CertificateAndKeyPair
 import net.corda.nodeapi.internal.crypto.CertificateType
@@ -38,6 +40,7 @@ import java.util.concurrent.atomic.AtomicReference
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import javax.security.auth.x500.X500Principal
+import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 
 
@@ -135,8 +138,13 @@ class NetworkMapApi(
         }
     }
 
-    @RequestMapping(path = ["build-dev-certs"], method = [RequestMethod.POST], produces = ["application/zip"], consumes = [MediaType.APPLICATION_OCTET_STREAM_VALUE])
-    fun buildCerts(@RequestBody input: ByteArray, response: HttpServletResponse) {
+    @RequestMapping(path = ["build-dev-certs"], method = [RequestMethod.POST], produces = ["application/zip"],
+            consumes = [MediaType.APPLICATION_OCTET_STREAM_VALUE])
+    fun generateDevCertsFromConfig(@RequestBody input: ByteArray,
+                                   @RequestParam("lookup", defaultValue = "false") lookupName: Boolean,
+                                   @RequestParam("rpcpass", required = true) p2pPassword: String,
+                                   response: HttpServletResponse,
+                                   request: HttpServletRequest) {
         ByteArrayInputStream(input).reader().use {
             val nodeConfig = loadConfig(input).parseAsNodeConfiguration()
             val SSLConfig = nodeConfig.rpcOptions.sslConfig
@@ -144,9 +152,10 @@ class NetworkMapApi(
             val trustStore = loadKeyStore(javaClass.classLoader.getResourceAsStream("certificates/cordatruststore.jks"), "trustpass")
             response.outputStream.use {
                 val zipped = ZipOutputStream(it)
-                val nodeKeyStoreEntry = ZipEntry("nodekeystore.jks")
-                val sslKeyStoreEntry = ZipEntry("sslkeystore.jks")
-                val trustStoreEntry = ZipEntry("truststore.jks")
+                val nodeKeyStoreEntry = ZipEntry("certificates/nodekeystore.jks")
+                val sslKeyStoreEntry = ZipEntry("certificates/sslkeystore.jks")
+                val trustStoreEntry = ZipEntry("certificates/truststore.jks")
+                val modifiedConfigEntry = ZipEntry("node.conf")
                 zipped.putNextEntry(nodeKeyStoreEntry)
                 nodeKeyStore.store(zipped, "cordacadevpass")
                 zipped.closeEntry()
@@ -156,11 +165,21 @@ class NetworkMapApi(
                 zipped.putNextEntry(trustStoreEntry)
                 trustStore.store(zipped, "trustpass".toCharArray())
                 zipped.closeEntry()
+                zipped.putNextEntry(modifiedConfigEntry)
+                val copy = nodeConfig.copy(
+                        p2pAddress = nodeConfig.p2pAddress.copy(host = request.remoteHost),
+                        rpcUsers = nodeConfig.rpcUsers.map { it.copy(password = p2pPassword) }
+                )
+                zipped.writer().use {
+                    it.write(copy
+                            .toConfig().root().render(ConfigRenderOptions.defaults())
+                    )
+                }
                 zipped.flush()
                 zipped.close()
             }
             response.status = 200
-            response.addHeader("Content-Disposition", "inline; filename=\"certificates.zip\"")
+            response.addHeader("Content-Disposition", "inline; filename=\"node-setup.zip\"")
         }
     }
 
@@ -197,7 +216,7 @@ class NetworkMapApi(
 
     @ResponseBody
     @RequestMapping(method = [RequestMethod.GET], value = ["network-map/reset-persisted-nodes"], produces = [MediaType.APPLICATION_JSON_VALUE])
-    fun resetPersistedNodes() : ResponseEntity<String> {
+    fun resetPersistedNodes(): ResponseEntity<String> {
         val result = nodeInfoRepository.purgeAllPersistedSignedNodeInfos()
         val resultMsg = "Deleted : {$result} rows."
         logger.info(resultMsg)
@@ -206,14 +225,14 @@ class NetworkMapApi(
 
     @ResponseBody
     @RequestMapping(method = [RequestMethod.GET], value = ["network-map/map-stats"], produces = [MediaType.APPLICATION_JSON_VALUE])
-    fun fetchMapState(): SimpleMapState{
+    fun fetchMapState(): SimpleMapState {
         val stats = SimpleMapState()
         networkParams.notaries.forEach {
-            stats.notaryNames.add("organisationUnit=" + it.identity.name.organisationUnit + " organisation=" + it.identity.name.organisation  + " locality=" + it.identity.name.locality +" country=" + it.identity.name.country)
+            stats.notaryNames.add("organisationUnit=" + it.identity.name.organisationUnit + " organisation=" + it.identity.name.organisation + " locality=" + it.identity.name.locality + " country=" + it.identity.name.country)
         }
         val allNodes = nodeInfoRepository.getAllHashes()
         allNodes.forEach {
-            val pair : Pair<SignedNodeInfo, ByteArray> = nodeInfoRepository.getSignedNodeInfo(it.toString())
+            val pair: Pair<SignedNodeInfo, ByteArray> = nodeInfoRepository.getSignedNodeInfo(it.toString())
             val orgName = pair.first.verified().legalIdentities[0].name.organisation
             stats.nodeNames.add(orgName)
         }
@@ -221,8 +240,8 @@ class NetworkMapApi(
     }
 
     class SimpleMapState {
-        val nodeNames : MutableList<String> = emptyList<String>().toMutableList()
-        val notaryNames : MutableList<String> = emptyList<String>().toMutableList()
+        val nodeNames: MutableList<String> = emptyList<String>().toMutableList()
+        val notaryNames: MutableList<String> = emptyList<String>().toMutableList()
     }
 
 }

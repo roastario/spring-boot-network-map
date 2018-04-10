@@ -107,7 +107,7 @@ data class BridgeConfiguration(val retryIntervalMs: Long,
 
 data class ActiveMqServerConfiguration(val bridge: BridgeConfiguration)
 
-fun Config.parseAsNodeConfiguration(): NodeConfiguration = parseAs<NodeConfigurationImpl>()
+fun Config.parseAsNodeConfiguration(): NodeConfigurationImpl = parseAs<NodeConfigurationImpl>()
 
 data class NodeConfigurationImpl(
         /** This is not retrieved from the config file but rather from a command line argument. */
