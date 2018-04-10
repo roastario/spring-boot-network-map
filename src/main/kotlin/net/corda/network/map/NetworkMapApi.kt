@@ -15,11 +15,13 @@ import net.corda.core.node.NetworkParameters
 import net.corda.core.serialization.SerializedBytes
 import net.corda.core.serialization.deserialize
 import net.corda.core.serialization.serialize
+import net.corda.core.utilities.loggerFor
 import net.corda.nodeapi.internal.DEV_ROOT_CA
 import net.corda.nodeapi.internal.SignedNodeInfo
 import net.corda.nodeapi.internal.createDevKeyStores
 import net.corda.nodeapi.internal.crypto.*
 import net.corda.nodeapi.internal.network.NetworkMap
+import org.slf4j.Logger
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -62,6 +64,9 @@ class NetworkMapApi(
     private val executorService = Executors.newSingleThreadExecutor()
     private val networkMap: AtomicReference<SerializedBytes<SignedDataWithCert<NetworkMap>>> = AtomicReference()
 
+    companion object {
+        val logger: Logger = loggerFor<NetworkMapApi>()
+    }
 
     init {
 
@@ -94,7 +99,12 @@ class NetworkMapApi(
 
     @RequestMapping(path = ["network-map/publish"], method = [RequestMethod.POST])
     fun postNodeInfo(@RequestBody input: ByteArray): DeferredResult<ResponseEntity<String>> {
+        logger.debug("Processing network-map/publish")
+
         val deserializedSignedNodeInfo = input.deserialize<SignedNodeInfo>()
+
+        logger.info("Processing network-map/publish for " + deserializedSignedNodeInfo.verified().legalIdentities)
+
         deserializedSignedNodeInfo.verified()
         nodeInfoRepository.persistSignedNodeInfo(deserializedSignedNodeInfo)
         val result = DeferredResult<ResponseEntity<String>>()
@@ -107,6 +117,9 @@ class NetworkMapApi(
 
     @RequestMapping(path = ["network-map/node-info/{hash}"], method = [RequestMethod.GET])
     fun getNodeInfo(@PathVariable("hash") input: String): ResponseEntity<ByteArray>? {
+
+        logger.info("Processing retrieval of nodeInfo for {$input}.")
+
         val (_, bytes) = nodeInfoRepository.getSignedNodeInfo(input)
         return ResponseEntity.ok()
                 .contentLength(bytes.size.toLong())
@@ -116,6 +129,9 @@ class NetworkMapApi(
 
     @RequestMapping(path = ["network-map"], method = [RequestMethod.GET])
     fun getNetworkMap(): ResponseEntity<ByteArray> {
+
+        logger.debug("Processing method to obtain network map.")
+
         return if (networkMap.get() != null) {
             val networkMapBytes = networkMap.get().bytes
             ResponseEntity.ok()
@@ -160,6 +176,9 @@ class NetworkMapApi(
 
     @RequestMapping(method = [RequestMethod.GET], path = ["network-map/network-parameters/{hash}"], produces = [MediaType.APPLICATION_OCTET_STREAM_VALUE])
     fun getNetworkParams(@PathVariable("hash") h: String): ResponseEntity<ByteArray> {
+
+        logger.info("Processing retrieval of network params for {$h}.")
+
         return if (SecureHash.parse(h) == networkParametersHash) {
             ResponseEntity.ok().header("Cache-Control", "max-age=${ThreadLocalRandom.current().nextInt(10, 30)}")
                     .body(networkParams.signWithCert(keyPair.private, networkMapCert).serialize().bytes)
@@ -170,6 +189,9 @@ class NetworkMapApi(
 
     private fun buildNetworkMap(): SerializedBytes<SignedDataWithCert<NetworkMap>> {
         val allNodes = nodeInfoRepository.getAllHashes()
+
+        logger.info("Processing retrieval of allNodes from the db and found {${allNodes.size}}.")
+
         val signedNetworkParams = networkParams.signWithCert(keyPair.private, networkMapCert)
         return NetworkMap(allNodes, signedNetworkParams.raw.hash, null).signWithCert(keyPair.private, networkMapCert).serialize()
     }
@@ -184,6 +206,40 @@ class NetworkMapApi(
                 X500Principal("CN=Network Map,O=R3 Ltd,L=London,C=GB"),
                 keyPair.public)
         return CertificateAndKeyPair(cert, keyPair)
+    }
+
+    @ResponseBody
+    @RequestMapping(method = [RequestMethod.GET], value = ["network-map/reset-persisted-nodes"], produces = [MediaType.APPLICATION_JSON_VALUE])
+    fun resetPersistedNodes() : ResponseEntity<String> {
+        val result = nodeInfoRepository.purgeAllPersistedSignedNodeInfos()
+        val resultMsg = "Deleted : {$result} rows."
+        logger.info(resultMsg)
+        return ResponseEntity(resultMsg, HttpStatus.ACCEPTED)
+    }
+
+    @ResponseBody
+    @RequestMapping(method = [RequestMethod.GET], value = ["network-map/map-stats"], produces = [MediaType.APPLICATION_JSON_VALUE])
+    fun fetchMapState(): SimpleMapState{
+        val stats = SimpleMapState()
+
+        networkParams.notaries.forEach {
+            stats.notaryNames.add("organisationUnit=" + it.identity.name.organisationUnit + " organisation=" + it.identity.name.organisation  + " locality=" + it.identity.name.locality +" country=" + it.identity.name.country)
+        }
+
+        val allNodes = nodeInfoRepository.getAllHashes()
+
+        allNodes.forEach {
+            val pair : Pair<SignedNodeInfo, ByteArray> = nodeInfoRepository.getSignedNodeInfo(it.toString())
+            val orgName = pair.first.verified().legalIdentities[0].name.organisation
+            stats.nodeNames.add(orgName)
+        }
+
+        return stats
+    }
+
+    class SimpleMapState {
+        val nodeNames : MutableList<String> = emptyList<String>().toMutableList()
+        val notaryNames : MutableList<String> = emptyList<String>().toMutableList()
     }
 
 }
