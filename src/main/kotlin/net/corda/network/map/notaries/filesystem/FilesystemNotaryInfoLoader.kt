@@ -3,14 +3,15 @@
  *
  * http://www.b3i.tech
  */
-package net.corda.network.map.filesystem
+package net.corda.network.map.notaries.filesystem
 
 import com.typesafe.config.ConfigFactory
 import net.corda.core.identity.Party
 import net.corda.core.internal.readObject
 import net.corda.core.node.NodeInfo
 import net.corda.core.node.NotaryInfo
-import net.corda.network.map.NotaryInfoLoader
+import net.corda.network.map.SerializationEngine
+import net.corda.network.map.notaries.NotaryInfoLoader
 import net.corda.nodeapi.internal.SignedNodeInfo
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.filefilter.DirectoryFileFilter
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Component
 
 @Component
 class FilesystemNotaryInfoLoader(@Autowired val context: ApplicationContext,
+                                 @SuppressWarnings("unused") serializationEngine: SerializationEngine,
                                  @Value("\${nodesDirectoryUrl:classpath:nodes}") private val nodesDirectoryUrl: String)
     : NotaryInfoLoader {
 

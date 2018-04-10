@@ -3,7 +3,7 @@
  *
  * http://www.b3i.tech
  */
-package net.corda.network.map
+package net.corda.network.map.notaries
 
 import net.corda.core.node.NotaryInfo
 

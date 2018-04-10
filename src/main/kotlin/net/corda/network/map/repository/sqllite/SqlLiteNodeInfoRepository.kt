@@ -3,12 +3,12 @@
  *
  * http://www.b3i.tech
  */
-package net.corda.network.map.sqllite
+package net.corda.network.map.repository.sqllite
 
 import net.corda.core.crypto.SecureHash
 import net.corda.core.serialization.deserialize
 import net.corda.core.serialization.serialize
-import net.corda.network.map.NodeInfoRepository
+import net.corda.network.map.repository.NodeInfoRepository
 import net.corda.network.map.SerializationEngine
 import net.corda.nodeapi.internal.SignedNodeInfo
 import org.springframework.beans.factory.annotation.Autowired

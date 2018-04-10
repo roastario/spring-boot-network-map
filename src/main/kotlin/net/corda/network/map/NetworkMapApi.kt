@@ -15,6 +15,12 @@ import net.corda.core.serialization.SerializedBytes
 import net.corda.core.serialization.deserialize
 import net.corda.core.serialization.serialize
 import net.corda.core.utilities.loggerFor
+import net.corda.network.map.certificates.loadConfig
+import net.corda.network.map.certificates.parseAsNodeConfiguration
+import net.corda.network.map.certificates.store
+import net.corda.network.map.notaries.NotaryInfoLoader
+import net.corda.network.map.repository.NetworkParamsRepository
+import net.corda.network.map.repository.NodeInfoRepository
 import net.corda.nodeapi.internal.DEV_ROOT_CA
 import net.corda.nodeapi.internal.SignedNodeInfo
 import net.corda.nodeapi.internal.config.toConfig

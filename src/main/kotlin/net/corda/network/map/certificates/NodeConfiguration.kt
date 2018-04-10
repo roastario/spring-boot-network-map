@@ -1,4 +1,4 @@
-package net.corda.network.map
+package net.corda.network.map.certificates
 
 import com.typesafe.config.Config
 import net.corda.core.context.AuthServiceId

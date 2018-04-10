@@ -3,7 +3,7 @@
  *
  * http://www.b3i.tech
  */
-package net.corda.network.map
+package net.corda.network.map.repository
 
 import net.corda.core.crypto.SecureHash
 import net.corda.core.node.NetworkParameters

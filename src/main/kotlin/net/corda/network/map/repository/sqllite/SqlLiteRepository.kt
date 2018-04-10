@@ -1,4 +1,4 @@
-package net.corda.network.map.sqllite
+package net.corda.network.map.repository.sqllite
 
 import org.sqlite.SQLiteDataSource
 import java.sql.Connection
