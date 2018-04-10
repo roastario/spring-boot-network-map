@@ -22,6 +22,7 @@ open class NetworkMapApplication
  * @param args Any args passed from the command line.
  */
 fun main(args: Array<String>) {
+    System.setProperty("logging.level.org.springframework.web", "DEBUG")
     val app = SpringApplication(NetworkMapApplication::class.java)
     app.isWebEnvironment = true
     app.run(*args)

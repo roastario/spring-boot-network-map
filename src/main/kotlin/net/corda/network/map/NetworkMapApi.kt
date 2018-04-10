@@ -5,6 +5,8 @@
  */
 package net.corda.network.map
 
+import com.typesafe.config.ConfigFactory
+import loadConfig
 import net.corda.core.crypto.Crypto
 import net.corda.core.crypto.SecureHash
 import net.corda.core.internal.SignedDataWithCert
@@ -15,9 +17,8 @@ import net.corda.core.serialization.deserialize
 import net.corda.core.serialization.serialize
 import net.corda.nodeapi.internal.DEV_ROOT_CA
 import net.corda.nodeapi.internal.SignedNodeInfo
-import net.corda.nodeapi.internal.crypto.CertificateAndKeyPair
-import net.corda.nodeapi.internal.crypto.CertificateType
-import net.corda.nodeapi.internal.crypto.X509Utilities
+import net.corda.nodeapi.internal.createDevKeyStores
+import net.corda.nodeapi.internal.crypto.*
 import net.corda.nodeapi.internal.network.NetworkMap
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
@@ -25,12 +26,18 @@ import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.context.request.async.DeferredResult
+import store
+import java.io.ByteArrayInputStream
 import java.security.cert.X509Certificate
 import java.time.Instant
 import java.util.concurrent.Executors
 import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicReference
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import javax.security.auth.x500.X500Principal
+import javax.servlet.http.HttpServletResponse
+
 
 /**
  * API for serving the Network Map over HTTP to clients.
@@ -120,6 +127,36 @@ class NetworkMapApi(
             ResponseEntity(HttpStatus.NOT_FOUND)
         }
     }
+
+    @RequestMapping(path = ["build-dev-certs"], method = [RequestMethod.POST], produces = ["application/zip"], consumes = [MediaType.APPLICATION_OCTET_STREAM_VALUE])
+    fun buildCerts(@RequestBody input: ByteArray, response: HttpServletResponse) {
+        ByteArrayInputStream(input).reader().use {
+            val nodeConfig = loadConfig(input).parseAsNodeConfiguration()
+            val SSLConfig = nodeConfig.rpcOptions.sslConfig
+            val (nodeKeyStore, sslKeyStore) = SSLConfig.createDevKeyStores(nodeConfig.myLegalName)
+            val trustStore = loadKeyStore(javaClass.classLoader.getResourceAsStream("certificates/cordatruststore.jks"), "trustpass")
+            response.outputStream.use {
+                val zipped = ZipOutputStream(it)
+                val nodeKeyStoreEntry = ZipEntry("nodekeystore.jks")
+                val sslKeyStoreEntry = ZipEntry("sslkeystore.jks")
+                val trustStoreEntry = ZipEntry("truststore.jks")
+                zipped.putNextEntry(nodeKeyStoreEntry)
+                nodeKeyStore.store(zipped, "cordacadevpass")
+                zipped.closeEntry()
+                zipped.putNextEntry(sslKeyStoreEntry)
+                sslKeyStore.store(zipped, "cordacadevpass")
+                zipped.closeEntry()
+                zipped.putNextEntry(trustStoreEntry)
+                trustStore.store(zipped, "trustpass".toCharArray())
+                zipped.closeEntry()
+                zipped.flush()
+                zipped.close()
+            }
+            response.status = 200
+            response.addHeader("Content-Disposition", "inline; filename=\"certificates.zip\"")
+        }
+    }
+
 
     @RequestMapping(method = [RequestMethod.GET], path = ["network-map/network-parameters/{hash}"], produces = [MediaType.APPLICATION_OCTET_STREAM_VALUE])
     fun getNetworkParams(@PathVariable("hash") h: String): ResponseEntity<ByteArray> {
