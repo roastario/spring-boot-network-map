@@ -1,3 +1,5 @@
+package net.corda.network.map
+
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import com.typesafe.config.ConfigParseOptions
@@ -8,7 +10,6 @@ import java.io.OutputStream
 fun X509KeyStore.store(outputStream: OutputStream, password: String) {
     internal.store(outputStream, password.toCharArray())
 }
-
 
 
 fun loadConfig(input: ByteArray): Config {
