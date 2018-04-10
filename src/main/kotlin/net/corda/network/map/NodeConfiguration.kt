@@ -7,9 +7,6 @@ import net.corda.core.internal.div
 import net.corda.core.utilities.NetworkHostAndPort
 import net.corda.core.utilities.loggerFor
 import net.corda.core.utilities.seconds
-import net.corda.node.internal.artemis.CertificateChainCheckPolicy
-import net.corda.node.services.config.SslOptions
-import net.corda.node.services.config.rpc.NodeRpcOptions
 import net.corda.nodeapi.internal.config.NodeSSLConfiguration
 import net.corda.nodeapi.internal.config.SSLConfiguration
 import net.corda.nodeapi.internal.config.User
@@ -17,6 +14,7 @@ import net.corda.nodeapi.internal.config.parseAs
 import net.corda.nodeapi.internal.persistence.DatabaseConfig
 import java.net.URL
 import java.nio.file.Path
+import java.nio.file.Paths
 import java.time.Duration
 import java.util.*
 
@@ -85,6 +83,7 @@ data class NotaryConfig(val validating: Boolean,
             "raft, bftSMaRt, and custom configs cannot be specified together"
         }
     }
+
     val isClusterConfig: Boolean get() = raft != null || bftSMaRt != null
 }
 
@@ -120,7 +119,7 @@ data class NodeConfigurationImpl(
         override val dataSourceProperties: Properties,
         override val compatibilityZoneURL: URL? = null,
         override val rpcUsers: List<User>,
-        override val security : SecurityConfiguration? = null,
+        override val security: SecurityConfiguration? = null,
         override val verifierType: VerifierType,
         // TODO typesafe config supports the notion of durations. Make use of that by mapping it to java.time.Duration.
         // Then rename this to messageRedeliveryDelay and make it of type Duration
@@ -232,16 +231,6 @@ enum class CertChainPolicyType {
 }
 
 data class CertChainPolicyConfig(val role: String, private val policy: CertChainPolicyType, private val trustedAliases: Set<String>) {
-    val certificateChainCheckPolicy: CertificateChainCheckPolicy
-        get() {
-            return when (policy) {
-                CertChainPolicyType.Any -> CertificateChainCheckPolicy.Any
-                CertChainPolicyType.RootMustMatch -> CertificateChainCheckPolicy.RootMustMatch
-                CertChainPolicyType.LeafMustMatch -> CertificateChainCheckPolicy.LeafMustMatch
-                CertChainPolicyType.MustContainOneOf -> CertificateChainCheckPolicy.MustContainOneOf(trustedAliases)
-                CertChainPolicyType.UsernameMustMatch -> CertificateChainCheckPolicy.UsernameMustMatchCommonName
-            }
-        }
 }
 
 data class SSHDConfiguration(val port: Int)
@@ -328,3 +317,19 @@ data class SecurityConfiguration(val authService: AuthService) {
         }
     }
 }
+
+interface NodeRpcOptions {
+    val address: NetworkHostAndPort?
+    val adminAddress: NetworkHostAndPort?
+    val standAloneBroker: Boolean
+    val useSsl: Boolean
+    val sslConfig: SSLConfiguration
+}
+
+data class SslOptions(override val certificatesDirectory: Path, override val keyStorePassword: String, override val trustStorePassword: String) : SSLConfiguration {
+    constructor(certificatesDirectory: String, keyStorePassword: String, trustStorePassword: String) : this(certificatesDirectory.toAbsolutePath(), keyStorePassword, trustStorePassword)
+
+    fun copy(certificatesDirectory: String = this.certificatesDirectory.toString(), keyStorePassword: String = this.keyStorePassword, trustStorePassword: String = this.trustStorePassword): SslOptions = copy(certificatesDirectory = certificatesDirectory.toAbsolutePath(), keyStorePassword = keyStorePassword, trustStorePassword = trustStorePassword)
+}
+
+private fun String.toAbsolutePath() = Paths.get(this).toAbsolutePath()
