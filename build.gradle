@@ -75,7 +75,15 @@ compileJava {
 }
 
 docker {
+
+    files 'src/main/shell/start.sh', jar.archivePath
     name "${project.group}/${jar.baseName}"
-    copySpec.into(".").from("src/main/shell/start.sh").from(jar.archivePath).from("nodes")
+    copySpec.with {
+        from('.') {
+            include 'nodes/**'
+            into 'nodes'
+        }
+    }
     buildArgs(['JAR_FILE': "${jar.archiveName}"])
+    noCache true
 }
