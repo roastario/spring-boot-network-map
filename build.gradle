@@ -49,7 +49,7 @@ dependencies {
     compile group: 'net.corda', name: 'corda-node-api', version: corda_release_version
     compile group: 'org.xerial', name: 'sqlite-jdbc', version: '3.21.0.1'
     compile group: 'commons-io', name: 'commons-io', version: '2.6'
-    compile group: "com.typesafe", name: "config" , version: typesafe_config_version
+    compile group: "com.typesafe", name: "config", version: typesafe_config_version
 
     testCompile "org.jetbrains.kotlin:kotlin-test"
     testCompile "org.jetbrains.kotlin:kotlin-test-junit"
@@ -76,6 +76,6 @@ compileJava {
 
 docker {
     name "${project.group}/${jar.baseName}"
-    copySpec.into(".").from("src/main/shell/start.sh").from(jar.archivePath)
+    copySpec.into(".").from("src/main/shell/start.sh").from(jar.archivePath).from("nodes")
     buildArgs(['JAR_FILE': "${jar.archiveName}"])
 }
