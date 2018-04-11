@@ -43,7 +43,6 @@ ext {
 }
 
 dependencies {
-
     // Spring boot dependencies
     compile group: 'org.springframework.boot', name: 'spring-boot-starter-web', version: spring_version
     compile group: 'net.corda', name: 'corda-node-api', version: corda_release_version
@@ -75,7 +74,6 @@ compileJava {
 }
 
 docker {
-
     files 'src/main/shell/start.sh', jar.archivePath
     name "${project.group}/${jar.baseName}"
     copySpec.with {
