@@ -7,54 +7,57 @@ package net.corda.network.map.filesystem
 
 import com.typesafe.config.ConfigFactory
 import net.corda.core.identity.Party
-import net.corda.core.internal.readObject
+
 import net.corda.core.node.NodeInfo
 import net.corda.core.node.NotaryInfo
+import net.corda.core.serialization.deserialize
 import net.corda.network.map.NotaryInfoLoader
 import net.corda.nodeapi.internal.SignedNodeInfo
-import org.apache.commons.io.FileUtils
-import org.apache.commons.io.filefilter.DirectoryFileFilter
-import org.apache.commons.io.filefilter.RegexFileFilter
+
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.ApplicationContext
+
 import org.springframework.stereotype.Component
+import java.io.InputStreamReader
 
 
 @Component
-class FilesystemNotaryInfoLoader(@Autowired val context: ApplicationContext,
+class FilesystemNotaryInfoLoader(@Autowired private val context: ApplicationContext,
                                  @Value("\${nodesDirectoryUrl:classpath:nodes}") private val nodesDirectoryUrl: String)
     : NotaryInfoLoader {
 
     override fun load(): List<NotaryInfo> {
-        val nodesDirectory = context.getResource(nodesDirectoryUrl).file
-        log.info("Started scanning nodes directory ${nodesDirectory.absolutePath} for notaries in node.conf files")
-        val configFiles = FileUtils.listFiles(
-                nodesDirectory,
-                RegexFileFilter("node.conf"),
-                DirectoryFileFilter.DIRECTORY
-        )
-        log.info("Found ${configFiles.size} node.conf files")
+        val nodeResources = context.getResources("$nodesDirectoryUrl/*.conf")
+        log.info("Started scanning nodes directory $nodesDirectoryUrl for notaries in node.conf files")
+        log.info("Found ${nodeResources.size} node.conf files")
 
-        val notaries = configFiles
-                .mapNotNull { ConfigFactory.parseFile(it) to it }
-                .filter { it.first.hasPath("notary") }
+
+        val notaries = nodeResources
+                .mapNotNull {
+                    val isr = InputStreamReader(it.inputStream)
+                    ConfigFactory.parseReader(isr) to it
+                }
+                .filter {
+                    it.first.hasPath("notary") }
                 .map { (notaryNodeConf, notaryNodeConfFile) ->
                     val validating = notaryNodeConf.getConfig("notary").getBoolean("validating")
-                    FileUtils.listFiles(
-                            notaryNodeConfFile.parentFile,
-                            RegexFileFilter("nodeInfo-.*"),
-                            null)
-                            .firstOrNull() to validating
+                    val legalName = notaryNodeConf.getString("myLegalName")
+                    var thisOne : NotaryInfo? = null
+                    context.getResources("$nodesDirectoryUrl/nodeInfo-*").forEach {
+                        val nodeInfo = it.inputStream.readBytes(DEFAULT_BUFFER_SIZE).deserialize<SignedNodeInfo>().verified()
+                        val organisation = nodeInfo.legalIdentities.first().name.organisation
+                        if (legalName.contains(organisation)) {
+                            thisOne = NotaryInfo(nodeInfo.notaryIdentity(), validating = validating)
+
+                        }
+                    }
+                    thisOne!!
                 }
-                .filter { it.first != null }
-                .map {
-                    val nodeInfo = it.first!!.toPath()!!.readObject<SignedNodeInfo>().verified()
-                    log.debug("found notary: ${nodeInfo.legalIdentities} @ ${nodeInfo.addresses}")
-                    NotaryInfo(nodeInfo.notaryIdentity(), validating = it.second)
-                }
-        log.info("Found ${notaries.size} notaries in ${nodesDirectory.absolutePath}")
+
+        log.info("Found ${notaries.size} notaries in $nodesDirectoryUrl")
+
         return notaries
     }
 
