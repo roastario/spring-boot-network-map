@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.ApplicationContext
 import org.springframework.stereotype.Component
+import java.io.File
 
 
 @Component
@@ -47,7 +48,11 @@ class FilesystemNotaryInfoLoader(@Autowired val context: ApplicationContext,
                     FileUtils.listFiles(
                             notaryNodeConfFile.parentFile,
                             RegexFileFilter("nodeInfo-.*"),
-                            null)
+                            object : DirectoryFileFilter() {
+                                override fun accept(dir: File, name: String?): Boolean {
+                                    return !dir.isDirectory
+                                }
+                            })
                             .firstOrNull() to validating
                 }
                 .filter { it.first != null }
