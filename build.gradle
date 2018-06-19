@@ -117,7 +117,7 @@ task copyNetworkMapJar() {
 
 docker {
     files 'src/main/shell/start.sh', 'src/main/resources/notary/node.conf', "${buildDir}/corda.jar", "${buildDir}/app.jar"
-    name "notary-and-network-map:" + "${corda_release_version.toLowerCase()}"
+    name "roastario/notary-and-network-map:" + "${corda_release_version.toLowerCase()}"
     noCache true
 }
 
