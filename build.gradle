@@ -1,6 +1,6 @@
 buildscript {
     ext.kotlin_version = '1.2.50'
-    ext.corda_release_version = '3.0.0-RC04'
+
     ext.typesafe_config_version = '1.3.1'
 
 
@@ -25,7 +25,7 @@ buildscript {
 
 plugins {
     id 'org.springframework.boot' version '1.5.10.RELEASE'
-    id 'com.palantir.docker' version '0.19.1'
+    id 'com.palantir.docker' version '0.19.2'
 }
 
 repositories {
@@ -53,6 +53,8 @@ apply plugin: 'com.palantir.docker'
 
 ext {
     spring_version = '1.5.10.RELEASE'
+    corda_release_version = '3.1-corda'
+    corda_group = 'net.corda'
 }
 
 configurations {
@@ -63,11 +65,11 @@ configurations {
 dependencies {
     // Spring boot dependencies
     compile group: 'org.springframework.boot', name: 'spring-boot-starter-web', version: spring_version
-    compile group: 'com.r3.corda', name: 'corda-node-api', version: corda_release_version
+    compile group: corda_group, name: 'corda-node-api', version: corda_release_version
     compile group: 'org.xerial', name: 'sqlite-jdbc', version: '3.21.0.1'
     compile group: 'commons-io', name: 'commons-io', version: '2.6'
     compile group: "com.typesafe", name: "config", version: typesafe_config_version
-    notaryRuntime group: 'com.r3.corda', name: 'corda', version: corda_release_version
+    notaryRuntime group: corda_group, name: 'corda', version: corda_release_version
     testCompile "org.jetbrains.kotlin:kotlin-test"
     testCompile "org.jetbrains.kotlin:kotlin-test-junit"
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
@@ -115,7 +117,7 @@ task copyNetworkMapJar() {
 
 docker {
     files 'src/main/shell/start.sh', 'src/main/resources/notary/node.conf', "${buildDir}/corda.jar", "${buildDir}/app.jar"
-    name "${project.group}/${jar.baseName}-${corda_release_version.toLowerCase()}"
+    name "notary-and-network-map:" + "${corda_release_version.toLowerCase()}"
     noCache true
 }
 
