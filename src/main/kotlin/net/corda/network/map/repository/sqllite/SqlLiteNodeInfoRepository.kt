@@ -64,7 +64,7 @@ class SqlLiteNodeInfoRepository(@Value("\${db.location:network_map.db}") dbLocat
         }
     }
 
-    override fun purgeAllPersistedSignedNodeInfos() : Int {
+    override fun purgeAllPersistedSignedNodeInfos(): Int {
         return dataSource.write {
             it.prepareStatement(DELETE_ALL_NODE_INFO_SQL).executeUpdate()
         }
@@ -80,8 +80,7 @@ class SqlLiteNodeInfoRepository(@Value("\${db.location:network_map.db}") dbLocat
         private const val BUILD_INDEX_SQL = "CREATE INDEX IF NOT EXISTS SIGNED_NODE_INFOS_HASH_IDX\n" +
                 "ON SIGNED_NODE_INFOS (hash);"
 
-        private const val INSERT_SIGNED_NODE_INFO_SQL =
-                "INSERT INTO SIGNED_NODE_INFOS (hash, data) VALUES ( ? , ? );"
+        private const val INSERT_SIGNED_NODE_INFO_SQL = "INSERT or REPLACE into SIGNED_NODE_INFOS (hash, data) VALUES ( ?, ?) ;"
 
         private const val GET_NODE_INFO_SQL =
                 "SELECT data FROM SIGNED_NODE_INFOS WHERE hash=?;"

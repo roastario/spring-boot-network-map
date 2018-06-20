@@ -91,7 +91,7 @@ class SqlLiteNetworkParamsRepository(@Value("\${db.location:network_map.db}") db
                 "ON NETWORK_PARAMETERS (hash);"
 
         private const val INSERT_NETWORK_PARAMETERS_SQL =
-                "INSERT INTO NETWORK_PARAMETERS (hash, data) VALUES ( ? , ? );"
+                "INSERT or REPLACE INTO NETWORK_PARAMETERS (hash, data) VALUES ( ? , ? );"
 
         private const val GET_NETWORK_PARAMETERS_SQL =
                 "SELECT data FROM NETWORK_PARAMETERS WHERE hash=?;"
