@@ -8,11 +8,12 @@ package net.corda.network.map
 import net.corda.core.serialization.SerializationContext
 import net.corda.core.serialization.internal.SerializationEnvironmentImpl
 import net.corda.core.serialization.internal.nodeSerializationEnv
-import net.corda.core.utilities.ByteSequence
-import net.corda.nodeapi.internal.serialization.AMQP_P2P_CONTEXT
-import net.corda.nodeapi.internal.serialization.SerializationFactoryImpl
-import net.corda.nodeapi.internal.serialization.amqp.AbstractAMQPSerializationScheme
-import net.corda.nodeapi.internal.serialization.amqp.SerializerFactory
+import net.corda.serialization.internal.AMQP_P2P_CONTEXT
+import net.corda.serialization.internal.CordaSerializationMagic
+import net.corda.serialization.internal.SerializationFactoryImpl
+import net.corda.serialization.internal.amqp.AbstractAMQPSerializationScheme
+import net.corda.serialization.internal.amqp.SerializerFactory
+import net.corda.serialization.internal.amqp.amqpMagic
 import org.springframework.stereotype.Component
 
 @Component
@@ -23,9 +24,10 @@ class SerializationEngine {
             nodeSerializationEnv = SerializationEnvironmentImpl(
                     SerializationFactoryImpl().apply {
                         registerScheme(object : AbstractAMQPSerializationScheme(emptyList()){
-                            override fun canDeserializeVersion(byteSequence: ByteSequence, target: SerializationContext.UseCase): Boolean {
-                                return target == SerializationContext.UseCase.P2P
+                            override fun canDeserializeVersion(magic: CordaSerializationMagic, target: SerializationContext.UseCase): Boolean {
+                                return (magic == amqpMagic && target == SerializationContext.UseCase.P2P)
                             }
+
                             override fun rpcClientSerializerFactory(context: SerializationContext): SerializerFactory {
                                 throw UnsupportedOperationException()
                             }
