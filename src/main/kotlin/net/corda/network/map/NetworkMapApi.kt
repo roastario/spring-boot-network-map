@@ -17,6 +17,7 @@ import net.corda.core.utilities.loggerFor
 import net.corda.network.map.notaries.NotaryInfoLoader
 import net.corda.network.map.repository.NetworkParamsRepository
 import net.corda.network.map.repository.NodeInfoRepository
+import net.corda.network.map.whitelist.JarLoader
 import net.corda.nodeapi.internal.DEV_ROOT_CA
 import net.corda.nodeapi.internal.SignedNodeInfo
 import net.corda.nodeapi.internal.crypto.CertificateAndKeyPair
@@ -49,6 +50,7 @@ class NetworkMapApi(
         @Autowired private val nodeInfoRepository: NodeInfoRepository,
         @Autowired private val networkParamsRepository: NetworkParamsRepository,
         @Autowired private val notaryInfoLoader: NotaryInfoLoader,
+        @Autowired private val jarLoader: JarLoader,
         @Suppress("unused") @Autowired private val serializationEngine: SerializationEngine
 ) {
 
@@ -71,6 +73,12 @@ class NetworkMapApi(
             networkParams = latestNetworkParams.first
             networkParametersHash = latestNetworkParams.second
         } else {
+            val whiteList = jarLoader.generateWhitelist()
+            whiteList.forEach { entry ->
+                entry.value.forEach {
+                    logger.info("found hash: " + it + " for contractClass: " + entry.key)
+                }
+            }
             networkParams = NetworkParameters(
                     minimumPlatformVersion = 1,
                     notaries = notaryInfoLoader.load(),
@@ -78,7 +86,7 @@ class NetworkMapApi(
                     maxTransactionSize = Int.MAX_VALUE,
                     modifiedTime = Instant.now(),
                     epoch = 10,
-                    whitelistedContractImplementations = emptyMap())
+                    whitelistedContractImplementations = whiteList)
 
             networkParametersHash = networkParams.serialize().hash
             val signedNetworkParams = networkParams.signWithCert(keyPair.private, networkMapCert)

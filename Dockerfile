@@ -16,3 +16,5 @@ EXPOSE 8080
 EXPOSE 10200
 CMD ["/start.sh"]
 COPY app.jar app.jar
+RUN mkdir -p /jars
+VOLUME ["/jars"]
