@@ -1,8 +1,3 @@
-/*
- * Copyright (c) 2018. B3i Switzerland. All rights reserved.
- *
- * http://www.b3i.tech
- */
 package net.corda.network.map.repository.sqllite
 
 import net.corda.core.crypto.SecureHash
@@ -20,8 +15,7 @@ import javax.annotation.PostConstruct
  * SQL Lite implementation of a Repository for storing NetworkParams.
  */
 @Repository
-class SqlLiteNetworkParamsRepository(@Value("\${db.location:network_map.db}") dbLocation: String,
-                                     @SuppressWarnings("unused") @Autowired ignored: SerializationEngine) : SqlLiteRepository(dbLocation), NetworkParamsRepository {
+class SqlLiteNetworkParamsRepository(@SuppressWarnings("unused") @Autowired ignored: SerializationEngine) : SqlLiteRepository(), NetworkParamsRepository {
 
 
     @PostConstruct
@@ -91,7 +85,7 @@ class SqlLiteNetworkParamsRepository(@Value("\${db.location:network_map.db}") db
                 "ON NETWORK_PARAMETERS (hash);"
 
         private const val INSERT_NETWORK_PARAMETERS_SQL =
-                "INSERT or REPLACE INTO NETWORK_PARAMETERS (hash, data) VALUES ( ? , ? );"
+                "INSERT OR REPLACE INTO NETWORK_PARAMETERS (hash, data) VALUES ( ? , ? );"
 
         private const val GET_NETWORK_PARAMETERS_SQL =
                 "SELECT data FROM NETWORK_PARAMETERS WHERE hash=?;"

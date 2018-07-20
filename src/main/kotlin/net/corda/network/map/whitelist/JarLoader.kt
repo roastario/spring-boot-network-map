@@ -4,10 +4,7 @@ import io.github.lukehutch.fastclasspathscanner.FastClasspathScanner
 import net.corda.core.contracts.Contract
 import net.corda.core.contracts.ContractClassName
 import net.corda.core.crypto.SecureHash
-import net.corda.core.internal.hash
-import net.corda.core.internal.isConcreteClass
-import net.corda.core.internal.list
-import net.corda.core.internal.toMultiMap
+import net.corda.core.internal.*
 import net.corda.core.node.services.AttachmentId
 import net.corda.nodeapi.internal.ContractsJar
 import net.corda.nodeapi.internal.coreContractClasses
@@ -15,20 +12,22 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import java.io.File
 import java.net.URLClassLoader
+import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.util.*
 import kotlin.streams.toList
 
 @Component()
-class JarLoader(@Value("\${jars.location:/jars}") jarDir: String) {
+class JarLoader(@Value("\${jars.location:/jars}") jarDir: String?) {
     private val directory = File(jarDir).toPath()
 
     private fun loadJars(): List<Path> {
-        val cordappJars = directory.list { paths ->
-            paths.filter { it.toString().endsWith(".jar") && it.fileName.toString() != "corda.jar" }.toList()
-        }
-
-        return cordappJars;
+        return directory.ifExists {
+            val cordappJars = directory.list { paths ->
+                paths.filter { it.toString().endsWith(".jar") && it.fileName.toString() != "corda.jar" }.toList()
+            }
+            cordappJars;
+        } ?: emptyList()
     }
 
     fun generateWhitelist(): Map<ContractClassName, List<AttachmentId>> {
@@ -67,4 +66,12 @@ class JarLoader(@Value("\${jars.location:/jars}") jarDir: String) {
         }
     }
 
+}
+
+fun <R> Path.ifExists(block: (Path) -> R): R? {
+    if (this.exists()) {
+        return block.invoke(this);
+    } else {
+        return null
+    }
 }

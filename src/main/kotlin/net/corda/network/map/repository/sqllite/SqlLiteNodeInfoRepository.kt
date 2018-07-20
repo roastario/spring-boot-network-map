@@ -1,7 +1,4 @@
 /*
- * Copyright (c) 2018. B3i Switzerland. All rights reserved.
- *
- * http://www.b3i.tech
  */
 package net.corda.network.map.repository.sqllite
 
@@ -20,8 +17,7 @@ import javax.annotation.PostConstruct
  * SQL Lite implementation of a Repository for storing NodeInfo.
  */
 @Repository
-class SqlLiteNodeInfoRepository(@Value("\${db.location:network_map.db}") dbLocation: String,
-                                @SuppressWarnings("unused") @Autowired ignored: SerializationEngine) : SqlLiteRepository(dbLocation), NodeInfoRepository {
+class SqlLiteNodeInfoRepository(@SuppressWarnings("unused") @Autowired ignored: SerializationEngine) : SqlLiteRepository(), NodeInfoRepository {
 
     @PostConstruct
     fun connect() {
@@ -80,7 +76,7 @@ class SqlLiteNodeInfoRepository(@Value("\${db.location:network_map.db}") dbLocat
         private const val BUILD_INDEX_SQL = "CREATE INDEX IF NOT EXISTS SIGNED_NODE_INFOS_HASH_IDX\n" +
                 "ON SIGNED_NODE_INFOS (hash);"
 
-        private const val INSERT_SIGNED_NODE_INFO_SQL = "INSERT or REPLACE into SIGNED_NODE_INFOS (hash, data) VALUES ( ?, ?) ;"
+        private const val INSERT_SIGNED_NODE_INFO_SQL = "INSERT OR REPLACE INTO SIGNED_NODE_INFOS (hash, data) VALUES ( ?, ?) ;"
 
         private const val GET_NODE_INFO_SQL =
                 "SELECT data FROM SIGNED_NODE_INFOS WHERE hash=?;"

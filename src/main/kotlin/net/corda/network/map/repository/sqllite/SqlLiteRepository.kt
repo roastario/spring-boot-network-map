@@ -6,9 +6,9 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
 
-abstract class SqlLiteRepository(dbLocation: String) {
+abstract class SqlLiteRepository() {
 
-    internal val jdbcUrl = "jdbc:sqlite:$dbLocation"
+    internal val jdbcUrl = "jdbc:sqlite:memory:"
     internal val dataSource: SQLiteDataSource = SQLiteDataSource()
 
     init {
