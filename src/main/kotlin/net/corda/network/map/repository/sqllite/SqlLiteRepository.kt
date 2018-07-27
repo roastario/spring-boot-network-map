@@ -6,17 +6,13 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
 
-abstract class SqlLiteRepository() {
+abstract class SqlLiteRepository {
 
-    internal val jdbcUrl = "jdbc:sqlite:memory:"
-    internal val dataSource: SQLiteDataSource = SQLiteDataSource()
-
-    init {
-        dataSource.url = jdbcUrl
-    }
 
     companion object {
         internal val globalLock: ReentrantReadWriteLock = ReentrantReadWriteLock()
+        val jdbcUrl = "jdbc:sqlite::memory:"
+        val dataSource: SQLiteDataSource = SQLiteDataSource().also { it.url = jdbcUrl }
     }
 
 

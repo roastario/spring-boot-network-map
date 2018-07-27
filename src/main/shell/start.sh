@@ -4,7 +4,7 @@ echo "starting network map service"
 
 # start the server
 echo "starting network map"
-java -Djava.security.egd=file:/dev/urandom -jar /app.jar --nodesDirectoryUrl=file:///opt/corda/ &
+java -Djava.security.egd=file:/dev/urandom -jar /app.jar --nodesDirectoryUrl=file:///opt/notaries/ &
 
 
 let EXIT_CODE=255
@@ -17,4 +17,4 @@ do
 done
 
 echo "starting notary"
-java -jar /opt/corda/corda.jar --base-directory=/opt/corda
+java -jar /opt/corda/corda.jar --base-directory=/opt/notaries

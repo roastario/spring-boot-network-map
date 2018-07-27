@@ -12,7 +12,7 @@ import net.corda.core.serialization.deserialize
 import net.corda.core.serialization.serialize
 import net.corda.core.utilities.loggerFor
 import net.corda.network.map.notaries.NotaryInfoLoader
-import net.corda.network.map.repository.NetworkParamsRepository
+import net.corda.network.map.repository.MapBacked
 import net.corda.network.map.repository.NodeInfoRepository
 import net.corda.network.map.whitelist.JarLoader
 import net.corda.nodeapi.internal.DEV_ROOT_CA
@@ -44,8 +44,7 @@ import javax.security.auth.x500.X500Principal
  */
 @RestController
 class NetworkMapApi(
-        @Autowired private val nodeInfoRepository: NodeInfoRepository,
-        @Autowired private val networkParamsRepository: NetworkParamsRepository,
+        @Autowired @MapBacked private val nodeInfoRepository: NodeInfoRepository,
         @Autowired private val notaryInfoLoader: NotaryInfoLoader,
         @Autowired private val jarLoader: JarLoader,
         @Suppress("unused") @Autowired private val serializationEngine: SerializationEngine
@@ -55,40 +54,37 @@ class NetworkMapApi(
     private val networkMapCert: X509Certificate = networkMapCa.certificate
     private val keyPair = networkMapCa.keyPair
 
-    private val networkParams: NetworkParameters;
     private val networkParametersHash: SecureHash;
     private val executorService = Executors.newSingleThreadExecutor()
     private val networkMap: AtomicReference<SerializedBytes<SignedDataWithCert<NetworkMap>>> = AtomicReference()
+    private val signedNetworkParams: SignedDataWithCert<NetworkParameters>
 
     companion object {
         val logger: Logger = loggerFor<NetworkMapApi>()
     }
 
-    init {
-        val latestNetworkParams = networkParamsRepository.getLatestNetworkParams()
-        if (latestNetworkParams != null) {
-            networkParams = latestNetworkParams.first
-            networkParametersHash = latestNetworkParams.second
-        } else {
-            val whiteList = jarLoader.generateWhitelist()
-            whiteList.forEach { entry ->
-                entry.value.forEach {
-                    logger.info("found hash: " + it + " for contractClass: " + entry.key)
-                }
-            }
-            networkParams = NetworkParameters(
-                    minimumPlatformVersion = 1,
-                    notaries = notaryInfoLoader.load(),
-                    maxMessageSize = 10485760,
-                    maxTransactionSize = Int.MAX_VALUE,
-                    modifiedTime = Instant.now(),
-                    epoch = 10,
-                    whitelistedContractImplementations = whiteList)
 
-            networkParametersHash = networkParams.serialize().hash
-            val signedNetworkParams = networkParams.signWithCert(keyPair.private, networkMapCert)
-            networkParamsRepository.persistNetworkParams(networkParams, signedNetworkParams.raw.hash)
+    private var networkParamsBytes: ByteArray
+
+    init {
+        val whiteList = jarLoader.generateWhitelist()
+        whiteList.forEach { entry ->
+            entry.value.forEach {
+                logger.info("found hash: " + it + " for contractClass: " + entry.key)
+            }
         }
+        val networkParams = NetworkParameters(
+                minimumPlatformVersion = 1,
+                notaries = notaryInfoLoader.load(),
+                maxMessageSize = 10485760 * 10,
+                maxTransactionSize = 10485760 * 5,
+                modifiedTime = Instant.now(),
+                epoch = 10,
+                whitelistedContractImplementations = whiteList)
+
+        signedNetworkParams = networkParams.signWithCert(keyPair.private, networkMapCert)
+        networkParamsBytes = signedNetworkParams.serialize().bytes
+        networkParametersHash = signedNetworkParams.raw.hash
         networkMap.set(buildNetworkMap())
     }
 
@@ -115,11 +111,16 @@ class NetworkMapApi(
     @RequestMapping(path = ["network-map/node-info/{hash}"], method = [RequestMethod.GET])
     fun getNodeInfo(@PathVariable("hash") input: String): ResponseEntity<ByteArray>? {
         logger.info("Processing retrieval of nodeInfo for {$input}.")
-        val (_, bytes) = nodeInfoRepository.getSignedNodeInfo(input)
-        return ResponseEntity.ok()
-                .contentLength(bytes.size.toLong())
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .body(bytes)
+        val foundNodeInfo = nodeInfoRepository.getSignedNodeInfo(input)
+        return if (foundNodeInfo == null) {
+            ResponseEntity.notFound().build()
+        } else {
+            return ResponseEntity.ok()
+                    .contentLength(foundNodeInfo.second.size.toLong())
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .body(foundNodeInfo.second)
+        }
+
     }
 
     @RequestMapping(path = ["network-map"], method = [RequestMethod.GET])
@@ -137,12 +138,13 @@ class NetworkMapApi(
         }
     }
 
+
     @RequestMapping(method = [RequestMethod.GET], path = ["network-map/network-parameters/{hash}"], produces = [MediaType.APPLICATION_OCTET_STREAM_VALUE])
     fun getNetworkParams(@PathVariable("hash") h: String): ResponseEntity<ByteArray> {
         logger.info("Processing retrieval of network params for {$h}.")
         return if (SecureHash.parse(h) == networkParametersHash) {
             ResponseEntity.ok().header("Cache-Control", "max-age=${ThreadLocalRandom.current().nextInt(10, 30)}")
-                    .body(networkParams.signWithCert(keyPair.private, networkMapCert).serialize().bytes)
+                    .body(networkParamsBytes)
         } else {
             ResponseEntity.notFound().build<ByteArray>()
         }
@@ -151,8 +153,7 @@ class NetworkMapApi(
     private fun buildNetworkMap(): SerializedBytes<SignedDataWithCert<NetworkMap>> {
         val allNodes = nodeInfoRepository.getAllHashes()
         logger.info("Processing retrieval of allNodes from the db and found {${allNodes.size}}.")
-        val signedNetworkParams = networkParams.signWithCert(keyPair.private, networkMapCert)
-        return NetworkMap(allNodes, signedNetworkParams.raw.hash, null).signWithCert(keyPair.private, networkMapCert).serialize()
+        return NetworkMap(allNodes.toList(), signedNetworkParams.raw.hash, null).signWithCert(keyPair.private, networkMapCert).serialize()
     }
 
 
@@ -180,14 +181,16 @@ class NetworkMapApi(
     @RequestMapping(method = [RequestMethod.GET], value = ["network-map/map-stats"], produces = [MediaType.APPLICATION_JSON_VALUE])
     fun fetchMapState(): SimpleMapState {
         val stats = SimpleMapState()
-        networkParams.notaries.forEach {
+        signedNetworkParams.verified().notaries.forEach {
             stats.notaryNames.add("organisationUnit=" + it.identity.name.organisationUnit + " organisation=" + it.identity.name.organisation + " locality=" + it.identity.name.locality + " country=" + it.identity.name.country)
         }
         val allNodes = nodeInfoRepository.getAllHashes()
         allNodes.forEach {
-            val pair: Pair<SignedNodeInfo, ByteArray> = nodeInfoRepository.getSignedNodeInfo(it.toString())
-            val orgName = pair.first.verified().legalIdentities[0].name.organisation
-            stats.nodeNames.add(orgName)
+            val pair: Pair<SignedNodeInfo, ByteArray>? = nodeInfoRepository.getSignedNodeInfo(it.toString())
+            pair?.let {
+                val orgName = pair.first.verified().legalIdentities[0].name.organisation
+                stats.nodeNames.add(orgName)
+            }
         }
         return stats
     }
@@ -195,6 +198,7 @@ class NetworkMapApi(
     class SimpleMapState {
         val nodeNames: MutableList<String> = emptyList<String>().toMutableList()
         val notaryNames: MutableList<String> = emptyList<String>().toMutableList()
+        val notaryCount get() = notaryNames.size
+        val nodeCount get() = nodeNames.size
     }
-
 }

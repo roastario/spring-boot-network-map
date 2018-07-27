@@ -52,8 +52,8 @@ apply plugin: 'com.palantir.docker'
 
 ext {
     spring_version = '1.5.10.RELEASE'
-    corda_release_version = '4.0-SNAPSHOT'
-    corda_group = 'net.corda'
+    corda_release_version = '3.1'
+    corda_group = 'com.r3.corda'
 }
 
 configurations {
