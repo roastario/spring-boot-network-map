@@ -1,6 +1,6 @@
 package net.corda.network.map.whitelist
 
-import io.github.lukehutch.fastclasspathscanner.FastClasspathScanner
+import io.github.classgraph.ClassGraph
 import net.corda.core.contracts.Contract
 import net.corda.core.contracts.ContractClassName
 import net.corda.core.crypto.SecureHash
@@ -12,7 +12,6 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import java.io.File
 import java.net.URLClassLoader
-import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.util.*
 import kotlin.streams.toList
@@ -44,21 +43,18 @@ class JarLoader(@Value("\${jars.location:/jars}") jarDir: String?) {
 
     class ContractsJarFile(private val file: Path) : ContractsJar {
         override val hash: SecureHash by lazy(LazyThreadSafetyMode.NONE, file::hash)
-
         override fun scan(): List<ContractClassName> {
-            val scanResult = FastClasspathScanner()
+            val scanResult = ClassGraph()
                     // A set of a single element may look odd, but if this is removed "Path" which itself is an `Iterable`
                     // is getting broken into pieces to scan individually, which doesn't yield desired effect.
                     .overrideClasspath(Collections.singleton(file))
                     .scan()
-
             val contractClassNames = coreContractClasses
-                    .flatMap { scanResult.getNamesOfClassesImplementing(it.qualifiedName) }
+                    .flatMap { scanResult.getClassesImplementing(it.qualifiedName) }
                     .toSet()
-
             return URLClassLoader(arrayOf(file.toUri().toURL()), Contract::class.java.classLoader).use { cl ->
                 contractClassNames.mapNotNull {
-                    val contractClass = cl.loadClass(it)
+                    val contractClass = cl.loadClass(it.name)
                     // Only keep instantiable contracts
                     if (contractClass.isConcreteClass) contractClass.name else null
                 }

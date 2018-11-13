@@ -41,8 +41,8 @@ repositories {
     maven { url 'https://jitpack.io' }
 }
 
-group = "com.r3.corda"
-version = "3.1"
+group = "com.roastario"
+version = "1.0-SNAPSHOT"
 
 apply plugin: 'kotlin'
 apply plugin: 'idea'
@@ -52,8 +52,8 @@ apply plugin: 'com.palantir.docker'
 
 ext {
     spring_version = '1.5.10.RELEASE'
-    corda_release_version = '3.1'
-    corda_group = 'com.r3.corda'
+    corda_release_version = '4.0-SNAPSHOT'
+    corda_group = 'net.corda'
 }
 
 configurations {
@@ -68,11 +68,13 @@ dependencies {
     compile group: 'org.xerial', name: 'sqlite-jdbc', version: '3.21.0.1'
     compile group: 'commons-io', name: 'commons-io', version: '2.6'
     compile group: "com.typesafe", name: "config", version: typesafe_config_version
-    notaryRuntime group: corda_group, name: 'corda', version: corda_release_version
+    compile group: 'io.github.classgraph', name: 'classgraph', version: '4.4.12'
+
     testCompile "org.jetbrains.kotlin:kotlin-test"
     testCompile "org.jetbrains.kotlin:kotlin-test-junit"
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
 
+    notaryRuntime group: corda_group, name: 'corda', version: corda_release_version
 }
 
 compileKotlin {
