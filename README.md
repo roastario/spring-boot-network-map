@@ -3,6 +3,11 @@ Corda uses a http protocol for sharing address/identity mappings
 This container aims to provide a simple way of getting started with corda networks. 
 To do this, it provides a simple non-validating notary and a network map within a single container
 
+## Building the project
+
+* To build the network map jar use: ```./gradlew clean build```
+* To build the network map jar and the docker image use: ```./gradlew clean build && ./gradlew docker``` (This must be run as two commands due to an issue with the docker plugin used //TODO - change plugin)
+
 ## Notary Config
 The notary must be configured to know what address to advertise itself on. 
 This is done via a PUBLIC_ADDRESS environment variable passed to the container
