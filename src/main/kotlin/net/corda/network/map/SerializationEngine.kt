@@ -1,9 +1,7 @@
-/*
- */
 package net.corda.network.map
 
 import net.corda.core.serialization.SerializationContext
-import net.corda.core.serialization.internal.SerializationEnvironment
+import net.corda.core.serialization.internal.SerializationEnvironmentImpl
 import net.corda.core.serialization.internal.nodeSerializationEnv
 import net.corda.serialization.internal.AMQP_P2P_CONTEXT
 import net.corda.serialization.internal.CordaSerializationMagic
@@ -18,9 +16,9 @@ class SerializationEngine {
     init {
         if (nodeSerializationEnv == null) {
             val classloader = this.javaClass.classLoader
-            nodeSerializationEnv = SerializationEnvironment.with(
+            nodeSerializationEnv = SerializationEnvironmentImpl(
                     SerializationFactoryImpl().apply {
-                        registerScheme(object : AbstractAMQPSerializationScheme(emptyList()) {
+                        registerScheme(object : AbstractAMQPSerializationScheme(emptyList()){
                             override fun canDeserializeVersion(magic: CordaSerializationMagic, target: SerializationContext.UseCase): Boolean {
                                 return (magic == amqpMagic && target == SerializationContext.UseCase.P2P)
                             }
@@ -28,12 +26,12 @@ class SerializationEngine {
                             override fun rpcClientSerializerFactory(context: SerializationContext): SerializerFactory {
                                 throw UnsupportedOperationException()
                             }
-
                             override fun rpcServerSerializerFactory(context: SerializationContext): SerializerFactory {
                                 throw UnsupportedOperationException()
                             }
                         })
-                    }, AMQP_P2P_CONTEXT.withClassLoader(classloader)
+                    },
+                    p2pContext = AMQP_P2P_CONTEXT.withClassLoader(classloader)
             )
         }
     }
