@@ -9,7 +9,6 @@ import net.corda.network.map.repository.NodeInfoRepository
 import net.corda.network.map.SerializationEngine
 import net.corda.nodeapi.internal.SignedNodeInfo
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Repository
 import javax.annotation.PostConstruct
 

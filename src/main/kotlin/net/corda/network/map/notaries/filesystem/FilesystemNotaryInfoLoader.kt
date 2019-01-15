@@ -2,7 +2,6 @@
  */
 package net.corda.network.map.notaries.filesystem
 
-import com.typesafe.config.ConfigFactory
 import net.corda.core.identity.Party
 import net.corda.core.internal.readObject
 import net.corda.core.node.NodeInfo
@@ -18,22 +17,22 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.ApplicationContext
 import org.springframework.stereotype.Component
-import java.io.File
 
 
 @Component
-class FilesystemNotaryInfoLoader(@Autowired val context: ApplicationContext,
-                                 @SuppressWarnings("unused") serializationEngine: SerializationEngine,
-                                 @Value("\${nodesDirectoryUrl:classpath:nodes}") private val nodesDirectoryUrl: String)
-    : NotaryInfoLoader {
+class FilesystemNotaryInfoLoader(
+    @Autowired val context: ApplicationContext,
+    @SuppressWarnings("unused") serializationEngine: SerializationEngine,
+    @Value("\${nodesDirectoryUrl:classpath:nodes}") private val nodesDirectoryUrl: String
+) : NotaryInfoLoader {
 
     override fun load(): List<NotaryInfo> {
         val directoryToLoadFrom = context.getResource(nodesDirectoryUrl).file
         log.info("Started scanning nodes directory ${directoryToLoadFrom.absolutePath} for notaries nodeInfo files")
         val nodeInfoFiles = FileUtils.listFiles(
-                directoryToLoadFrom,
-                RegexFileFilter("nodeInfo-.*"),
-                DirectoryFileFilter.DIRECTORY
+            directoryToLoadFrom,
+            RegexFileFilter("nodeInfo-.*"),
+            DirectoryFileFilter.DIRECTORY
         )
         log.info("Found ${nodeInfoFiles.size} nodeInfo files")
         val notaryInfos = nodeInfoFiles.map {
