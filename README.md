@@ -1,7 +1,16 @@
 # The network map
 Corda uses a http protocol for sharing address/identity mappings
-This container aims to provide a simple way of getting started with corda networks. 
+This container aims to be a simple way of getting started with corda networks. 
 To do this, it provides a simple non-validating notary and a network map within a single container
+
+
+# The doorman 
+Corda is a _permissioned_ system, and control of which identities are allowed onto a network is provided by the doorman 
+protocol as described [here](https://docs.corda.net/permissioning.html). 
+
+This container implements provides an "Auto" accept doorman, with a trust root of the corda development certificate authority. This trust root is available at the endpoint `http://<serving_url>/trustroot` 
+with a password of `trustpass`. 
+
 
 ## Building the project
 
