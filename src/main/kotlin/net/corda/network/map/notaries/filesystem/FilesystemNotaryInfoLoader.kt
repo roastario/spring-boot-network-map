@@ -41,7 +41,7 @@ class FilesystemNotaryInfoLoader(
             NotaryInfo(nodeInfo.verified().notaryIdentity(), false)
         }
         log.info("Found ${notaryInfos.size} notaries in ${directoryToLoadFrom.absolutePath}")
-        return notaryInfos
+        return notaryInfos.toSet().toList()
     }
 
     companion object {

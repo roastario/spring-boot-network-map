@@ -2,9 +2,7 @@
  */
 package net.corda.network.map
 
-import net.corda.core.crypto.Crypto
 import net.corda.core.crypto.SecureHash
-import net.corda.core.identity.CordaX500Name
 import net.corda.core.internal.SignedDataWithCert
 import net.corda.core.internal.signWithCert
 import net.corda.core.node.NetworkParameters
@@ -12,23 +10,17 @@ import net.corda.core.serialization.SerializedBytes
 import net.corda.core.serialization.deserialize
 import net.corda.core.serialization.serialize
 import net.corda.core.utilities.loggerFor
+import net.corda.network.map.certificates.CertificateUtils
 import net.corda.network.map.notaries.NotaryInfoLoader
 import net.corda.network.map.repository.MapBacked
 import net.corda.network.map.repository.NodeInfoRepository
 import net.corda.network.map.whitelist.JarLoader
-import net.corda.nodeapi.internal.DEV_CA_TRUST_STORE_PASS
 import net.corda.nodeapi.internal.DEV_ROOT_CA
 import net.corda.nodeapi.internal.SignedNodeInfo
 import net.corda.nodeapi.internal.crypto.CertificateAndKeyPair
-import net.corda.nodeapi.internal.crypto.CertificateType
-import net.corda.nodeapi.internal.crypto.X509KeyStore
-import net.corda.nodeapi.internal.crypto.X509Utilities
 import net.corda.nodeapi.internal.network.NetworkMap
-import org.bouncycastle.asn1.ASN1Encodable
-import org.bouncycastle.asn1.ASN1ObjectIdentifier
-import org.bouncycastle.asn1.x500.AttributeTypeAndValue
-import org.bouncycastle.asn1.x500.X500Name
-import org.bouncycastle.asn1.x500.style.BCStyle
+import org.bouncycastle.jce.ECNamedCurveTable
+import org.bouncycastle.jce.spec.ECParameterSpec
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest
 import org.slf4j.Logger
 import org.springframework.beans.factory.annotation.Autowired
@@ -39,7 +31,9 @@ import org.springframework.web.bind.annotation.*
 import org.springframework.web.context.request.async.DeferredResult
 import java.io.ByteArrayOutputStream
 import java.math.BigInteger
-import java.security.PublicKey
+import java.security.KeyPair
+import java.security.KeyPairGenerator
+import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.time.Instant
 import java.util.*
@@ -48,7 +42,6 @@ import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicReference
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
-import javax.security.auth.x500.X500Principal
 import kotlin.collections.HashMap
 
 
@@ -66,25 +59,32 @@ class NetworkMapApi(
     @Suppress("unused") @Autowired private val serializationEngine: SerializationEngine
 ) {
 
-    private val networkMapCa = createDevNetworkMapCa(DEV_ROOT_CA)
+    private val networkMapCa = CertificateUtils.createDevNetworkMapCa(DEV_ROOT_CA)
     private val networkMapCert: X509Certificate = networkMapCa.certificate
     private val networkMapKeyPair = networkMapCa.keyPair
 
-    private val doormanCa = createDevDoormanCa(DEV_ROOT_CA)
+    private val doormanCa = CertificateUtils.createDevDoormanCa(DEV_ROOT_CA)
     private val doormanCert: X509Certificate = doormanCa.certificate
     private val doormanKeyPair = doormanCa.keyPair
 
-    private val networkParametersHash: SecureHash;
+    private val networkParametersHash: SecureHash
     private val executorService = Executors.newSingleThreadExecutor()
     private val networkMap: AtomicReference<SerializedBytes<SignedDataWithCert<NetworkMap>>> = AtomicReference()
     private val signedNetworkParams: SignedDataWithCert<NetworkParameters>
 
-    private val trustRoot = generateTrustStore()
+    private val trustRoot = CertificateUtils.generateTrustStore()
+
 
     companion object {
         val logger: Logger = loggerFor<NetworkMapApi>()
-    }
 
+        fun generateKeyPair(): KeyPair {
+            val ecSpec: ECParameterSpec = ECNamedCurveTable.getParameterSpec("prime256v1");
+            val generator: KeyPairGenerator = KeyPairGenerator.getInstance("ECDSA", "BC");
+            generator.initialize(ecSpec, SecureRandom())
+            return generator.generateKeyPair();
+        }
+    }
 
     private var networkParamsBytes: ByteArray
     private val csrHolder: MutableMap<String, JcaPKCS10CertificationRequest> = Collections.synchronizedMap(HashMap())
@@ -101,7 +101,7 @@ class NetworkMapApi(
             notaries = notaryInfoLoader.load(),
             maxMessageSize = 10485760 * 10,
             maxTransactionSize = 10485760 * 5,
-            modifiedTime = Instant.now(),
+            modifiedTime = Instant.MIN,
             epoch = 10,
             whitelistedContractImplementations = whiteList
         )
@@ -155,20 +155,17 @@ class NetworkMapApi(
     @RequestMapping(path = ["/certificate/{id}"], method = [RequestMethod.GET])
     fun getSignedCSR(@PathVariable("id") id: String): ResponseEntity<ByteArray> {
         val csr = csrHolder[id]
-        val zipBytes = csr?.let { _ ->
-            val nodePublicKey = csr.publicKey
-            val name = csr.subject.toCordaX500Name()
-            val certificate = createCertificate(
-                CertificateAndKeyPair(doormanCert, doormanKeyPair),
-                name,
-                nodePublicKey,
-                CertificateType.NODE_CA
-            )
+
+        val issuerCert = doormanCert
+        val issuerKeyPair = doormanKeyPair
+
+        val zipBytes = csr?.let {
+            val nodeCaCertificate = CertificateUtils.createAndSignNodeCACerts(CertificateAndKeyPair(issuerCert, issuerKeyPair), csr)
             val backingStream = ByteArrayOutputStream()
             backingStream.use {
                 val zipOutputStream = ZipOutputStream(backingStream);
                 zipOutputStream.use {
-                    listOf(certificate, doormanCert, DEV_ROOT_CA.certificate).forEach { certificate ->
+                    listOf(nodeCaCertificate, doormanCert, DEV_ROOT_CA.certificate).forEach { certificate ->
                         zipOutputStream.putNextEntry(ZipEntry(certificate.subjectX500Principal.name))
                         zipOutputStream.write(certificate.encoded)
                         zipOutputStream.closeEntry()
@@ -231,7 +228,6 @@ class NetworkMapApi(
     }
 
 
-
     @ResponseBody
     @RequestMapping(
         method = [RequestMethod.GET],
@@ -283,69 +279,6 @@ class NetworkMapApi(
         ).serialize()
     }
 
-    private fun createCertificate(
-        rootCa: CertificateAndKeyPair,
-        name: CordaX500Name,
-        publicKey: PublicKey,
-        certificateType: CertificateType
-    ): X509Certificate {
-        return X509Utilities.createCertificate(
-            certificateType = certificateType,
-            issuerCertificate = rootCa.certificate,
-            issuerKeyPair = rootCa.keyPair,
-            subject = name.x500Principal,
-            subjectPublicKey = publicKey
-        )
-    }
-
-    private fun X500Name.toCordaX500Name(): CordaX500Name {
-        val attributesMap: Map<ASN1ObjectIdentifier, ASN1Encodable> = this.rdNs
-            .flatMap { it.typesAndValues.asList() }
-            .groupBy(AttributeTypeAndValue::getType, AttributeTypeAndValue::getValue)
-            .mapValues {
-                require(it.value.size == 1) { "Duplicate attribute ${it.key}" }
-                it.value[0]
-            }
-        val cn = attributesMap[BCStyle.CN]?.toString()
-        val ou = attributesMap[BCStyle.OU]?.toString()
-        val st = attributesMap[BCStyle.ST]?.toString()
-        val o = attributesMap[BCStyle.O]?.toString()
-            ?: throw IllegalArgumentException("X500 name must have an Organisation: ${this}")
-        val l = attributesMap[BCStyle.L]?.toString()
-            ?: throw IllegalArgumentException("X500 name must have a Location: ${this}")
-        val c = attributesMap[BCStyle.C]?.toString()
-            ?: throw IllegalArgumentException("X500 name must have a Country: ${this}")
-        return CordaX500Name(cn, ou, o, l, st, c)
-    }
 
 
-    private fun createDevNetworkMapCa(rootCa: CertificateAndKeyPair): CertificateAndKeyPair {
-        val keyPair = Crypto.generateKeyPair()
-        val cert = X509Utilities.createCertificate(
-            CertificateType.NETWORK_MAP,
-            rootCa.certificate,
-            rootCa.keyPair,
-            X500Principal("CN=Network Map,O=R3 Ltd,L=London,C=GB"),
-            keyPair.public
-        )
-        return CertificateAndKeyPair(cert, keyPair)
-    }
-
-    private fun createDevDoormanCa(rootCa: CertificateAndKeyPair): CertificateAndKeyPair {
-        val keyPair = Crypto.generateKeyPair()
-        val cert = X509Utilities.createCertificate(
-            CertificateType.INTERMEDIATE_CA,
-            rootCa.certificate,
-            rootCa.keyPair,
-            X500Principal("CN=BasicDoorman,O=R3 Ltd,L=London,C=GB"),
-            keyPair.public
-        )
-        return CertificateAndKeyPair(cert, keyPair)
-    }
-
-    private fun generateTrustStore(): ByteArray = ByteArrayOutputStream().apply {
-        X509KeyStore(DEV_CA_TRUST_STORE_PASS).apply {
-            setCertificate("cordarootca", DEV_ROOT_CA.certificate)
-        }.internal.store(this, DEV_CA_TRUST_STORE_PASS.toCharArray())
-    }.toByteArray()
 }

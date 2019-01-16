@@ -17,4 +17,4 @@ do
 done
 
 echo "starting notary"
-java -Dcapsule.jvm.args="-Xmx40g -Xms2g -XX:+UseG1GC" -jar /opt/corda/corda.jar --base-directory=/opt/notaries
+(cd /opt/notaries; java -jar corda.jar)

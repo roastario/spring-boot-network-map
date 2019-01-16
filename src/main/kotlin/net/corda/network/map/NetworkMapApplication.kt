@@ -2,8 +2,10 @@
  */
 package net.corda.network.map
 
+import net.corda.network.map.certificates.CertificateUtils
 import org.springframework.boot.SpringApplication
 import org.springframework.boot.autoconfigure.SpringBootApplication
+import java.security.Security
 
 /**
  * Starts the Network Map Service.
@@ -20,6 +22,7 @@ open class NetworkMapApplication
  */
 fun main(args: Array<String>) {
     System.setProperty("logging.level.org.springframework.web", "DEBUG")
+    Security.insertProviderAt(CertificateUtils.provider, 1);
     val app = SpringApplication(NetworkMapApplication::class.java)
     app.isWebEnvironment = true
     app.run(*args)
