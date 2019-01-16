@@ -5,8 +5,8 @@ package net.corda.network.map.repository.sqllite
 import net.corda.core.crypto.SecureHash
 import net.corda.core.serialization.deserialize
 import net.corda.core.serialization.serialize
-import net.corda.network.map.repository.NodeInfoRepository
 import net.corda.network.map.SerializationEngine
+import net.corda.network.map.repository.NodeInfoRepository
 import net.corda.nodeapi.internal.SignedNodeInfo
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Repository
