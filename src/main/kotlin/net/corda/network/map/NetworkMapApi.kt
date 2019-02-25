@@ -27,7 +27,14 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.*
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestHeader
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestMethod
+import org.springframework.web.bind.annotation.ResponseBody
+import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.context.request.async.DeferredResult
 import java.io.ByteArrayOutputStream
 import java.math.BigInteger
@@ -36,13 +43,13 @@ import java.security.KeyPairGenerator
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.time.Instant
-import java.util.*
+import java.util.Collections
+import java.util.Random
 import java.util.concurrent.Executors
 import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicReference
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
-import kotlin.collections.HashMap
 
 
 /**
@@ -97,7 +104,7 @@ class NetworkMapApi(
             }
         }
         val networkParams = NetworkParameters(
-            minimumPlatformVersion = 1,
+            minimumPlatformVersion = 4,
             notaries = notaryInfoLoader.load(),
             maxMessageSize = 10485760 * 10,
             maxTransactionSize = 10485760 * 5,
@@ -262,6 +269,72 @@ class NetworkMapApi(
         }
         return stats
     }
+
+    @GetMapping("install.sh")
+    fun installScript(@RequestHeader(value="Host") host:String): ResponseEntity<String> =
+            ResponseEntity("""
+#!/bin/sh
+
+apt-get update && apt-get install -y openjdk-8-jre sudo
+
+PUBLIC_IP=${'$'}(curl ifconfig.me)
+ORG=${'$'}(</dev/urandom tr -dc A-Za-z0-9 | head -c16)
+
+NODE_CONF=${'$'}(cat <<EOF
+myLegalName : "O=${'$'}ORG, L=Zurich, C=CH"
+p2pAddress : "${'$'}PUBLIC_IP:10000"
+rpcSettings : {
+address = "0.0.0.0:10001"
+adminAddress = "localhost:10002"
+}
+rpcUsers: [
+{ username=changeme, password=changeme, permissions=[ALL]}
+]
+devMode = false
+networkServices {
+doormanURL = "http://$host"
+networkMapURL = "http://$host"
+}
+sshd {
+port = 2222
+}
+detectPublicIp = true
+EOF
+)
+
+CORDA_SERVICE=${'$'}(cat <<EOF
+[Unit]
+Description=Corda Node
+Requires=network.target
+
+[Service]
+Type=simple
+User=corda
+WorkingDirectory=/opt/corda
+ExecStart=/usr/bin/java -jar /opt/corda/corda.jar
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+)
+
+adduser --system --no-create-home --group corda
+mkdir /opt/corda && chown corda:corda /opt/corda
+
+sudo -u corda bash -c "
+curl -o /opt/corda/corda.jar https://ci-artifactory.corda.r3cev.com/artifactory/corda-releases/net/corda/corda/4.0/corda-4.0.jar
+mkdir /opt/corda/certificates
+curl -o /opt/corda/certificates/network-root-truststore.jks http://$host/truststore
+echo '${'$'}NODE_CONF' > /opt/corda/node.conf
+cd /opt/corda; java -jar corda.jar initial-registration -p trustpass"
+
+echo "${'$'}CORDA_SERVICE" > /etc/systemd/system/corda.service
+systemctl daemon-reload
+sudo systemctl enable --now corda
+            """.trimIndent(), HttpStatus.OK)
+
+
 
     class SimpleMapState {
         val nodeNames: MutableList<String> = emptyList<String>().toMutableList()
