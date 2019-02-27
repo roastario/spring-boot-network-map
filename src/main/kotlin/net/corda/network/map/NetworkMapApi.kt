@@ -25,6 +25,7 @@ import org.bouncycastle.jce.spec.ECParameterSpec
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest
 import org.slf4j.Logger
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -67,6 +68,7 @@ class NetworkMapApi(
     @Autowired private val notaryInfoLoader: NotaryInfoLoader,
     @Autowired private val jarLoader: JarLoader,
     @Autowired private val ubuntuBootstapper: UbuntuBootstapper,
+    @Value("\${minimumPlatformVersion:4}") private val minPlatformVersion: String,
     @Suppress("unused") @Autowired private val serializationEngine: SerializationEngine
 ) {
 
@@ -108,7 +110,7 @@ class NetworkMapApi(
             }
         }
         val networkParams = NetworkParameters(
-            minimumPlatformVersion = 4,
+            minimumPlatformVersion = minPlatformVersion.toInt(),
             notaries = notaryInfoLoader.load(),
             maxMessageSize = 10485760 * 10,
             maxTransactionSize = 10485760 * 5,

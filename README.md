@@ -26,10 +26,16 @@ If your cordapp makes use of the zone whitelist, you must provide a set of jars 
 This is done via mounting a folder into the /jars directory. 
 
 
-### Example Run with default ports
+## Platform Version
+The network-map is configured by default to use the platform version of the corda runtime bundled as the minimumPlatformVersion of the network. It is possible to modify this by passing ``--minimumPlatformVersion=<required_version>`` to the container
+
+### Example Run 
  
 ```$xslt
-docker run -it -v corda/samples/bank-of-corda-demo/build/nodes/BankOfCorda/cordapps:/jars -p 8080:8080 -p 10200:10200 -e PUBLIC_ADDRESS=stefano-corda.azure.io roastario/notary-and-network-map:latest 
+docker run -it -v corda/samples/bank-of-corda-demo/build/nodes/BankOfCorda/cordapps:/jars -p 8080:8080 -p 10200:10200 -e PUBLIC_ADDRESS=stefano-corda.azure.io roastario/notary-and-network-map:4.0 --minimumPlatformVersion=4
 ```
 
-will expose the network map on port 8080, whilst the notary will be exposed on port 10200 and advertised as `stefano-corda.azure.io`
+* the network map will be exposed on port 8080, 
+* the notary will be exposed on port 10200 and advertised as `stefano-corda.azure.io`
+* the cordapps located in ``corda/samples/bank-of-corda-demo/build/nodes/BankOfCorda/cordapps`` will be used to generate a whitelist
+* the minimum version of the network will be set to 4
