@@ -35,7 +35,7 @@ repositories {
         url 'https://dl.bintray.com/kotlin/kotlin-eap/'
     }
     maven {
-        url "http://ci-artifactory.corda.r3cev.com/artifactory/corda-dev"
+        url "http://ci-artifactory.corda.r3cev.com/artifactory/corda-releases"
     }
 
     maven { url 'https://jitpack.io' }
@@ -52,7 +52,7 @@ apply plugin: 'com.palantir.docker'
 
 ext {
     spring_version = '1.5.10.RELEASE'
-    corda_release_version = '4.0-SNAPSHOT'
+    corda_release_version = '4.0'
     corda_group = 'net.corda'
     bouncycastle_version = '1.57'
 }

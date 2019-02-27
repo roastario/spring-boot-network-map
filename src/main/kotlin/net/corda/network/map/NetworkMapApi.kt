@@ -10,6 +10,7 @@ import net.corda.core.serialization.SerializedBytes
 import net.corda.core.serialization.deserialize
 import net.corda.core.serialization.serialize
 import net.corda.core.utilities.loggerFor
+import net.corda.network.map.bootstrapping.UbuntuBootstapper
 import net.corda.network.map.certificates.CertificateUtils
 import net.corda.network.map.notaries.NotaryInfoLoader
 import net.corda.network.map.repository.MapBacked
@@ -27,14 +28,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PathVariable
-import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestHeader
-import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RequestMethod
-import org.springframework.web.bind.annotation.ResponseBody
-import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.bind.annotation.*
 import org.springframework.web.context.request.async.DeferredResult
 import java.io.ByteArrayOutputStream
 import java.math.BigInteger
@@ -50,6 +44,15 @@ import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicReference
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlin.collections.HashMap
+import kotlin.collections.MutableList
+import kotlin.collections.MutableMap
+import kotlin.collections.emptyList
+import kotlin.collections.forEach
+import kotlin.collections.listOf
+import kotlin.collections.set
+import kotlin.collections.toList
+import kotlin.collections.toMutableList
 
 
 /**
@@ -63,6 +66,7 @@ class NetworkMapApi(
     @Autowired @MapBacked private val nodeInfoRepository: NodeInfoRepository,
     @Autowired private val notaryInfoLoader: NotaryInfoLoader,
     @Autowired private val jarLoader: JarLoader,
+    @Autowired private val ubuntuBootstapper: UbuntuBootstapper,
     @Suppress("unused") @Autowired private val serializationEngine: SerializationEngine
 ) {
 
@@ -183,9 +187,11 @@ class NetworkMapApi(
             zipBytes
         }
 
-        return zipBytes?.let { ResponseEntity.ok()
-            .header("Content-Type", "application/octet-stream")
-            .body(zipBytes) } ?: ResponseEntity.notFound().build()
+        return zipBytes?.let {
+            ResponseEntity.ok()
+                .header("Content-Type", "application/octet-stream")
+                .body(zipBytes)
+        } ?: ResponseEntity.notFound().build()
 
     }
 
@@ -271,70 +277,7 @@ class NetworkMapApi(
     }
 
     @GetMapping("install.sh")
-    fun installScript(@RequestHeader(value="Host") host:String): ResponseEntity<String> =
-            ResponseEntity("""
-#!/bin/sh
-
-apt-get update && apt-get install -y openjdk-8-jre sudo
-
-PUBLIC_IP=${'$'}(curl ifconfig.me)
-ORG=${'$'}(</dev/urandom tr -dc A-Za-z0-9 | head -c16)
-
-NODE_CONF=${'$'}(cat <<EOF
-myLegalName : "O=${'$'}ORG, L=Zurich, C=CH"
-p2pAddress : "${'$'}PUBLIC_IP:10000"
-rpcSettings : {
-address = "0.0.0.0:10001"
-adminAddress = "localhost:10002"
-}
-rpcUsers: [
-{ username=changeme, password=changeme, permissions=[ALL]}
-]
-devMode = false
-networkServices {
-doormanURL = "http://$host"
-networkMapURL = "http://$host"
-}
-sshd {
-port = 2222
-}
-detectPublicIp = true
-EOF
-)
-
-CORDA_SERVICE=${'$'}(cat <<EOF
-[Unit]
-Description=Corda Node
-Requires=network.target
-
-[Service]
-Type=simple
-User=corda
-WorkingDirectory=/opt/corda
-ExecStart=/usr/bin/java -jar /opt/corda/corda.jar
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
-EOF
-)
-
-adduser --system --no-create-home --group corda
-mkdir /opt/corda && chown corda:corda /opt/corda
-
-sudo -u corda bash -c "
-curl -o /opt/corda/corda.jar https://ci-artifactory.corda.r3cev.com/artifactory/corda-releases/net/corda/corda/4.0/corda-4.0.jar
-mkdir /opt/corda/certificates
-curl -o /opt/corda/certificates/network-root-truststore.jks http://$host/truststore
-echo '${'$'}NODE_CONF' > /opt/corda/node.conf
-cd /opt/corda; java -jar corda.jar initial-registration -p trustpass"
-
-echo "${'$'}CORDA_SERVICE" > /etc/systemd/system/corda.service
-systemctl daemon-reload
-sudo systemctl enable --now corda
-            """.trimIndent(), HttpStatus.OK)
-
-
+    fun installScript(@RequestHeader(value = "Host") host: String): ResponseEntity<String> = ResponseEntity(ubuntuBootstapper.installScript(host), HttpStatus.OK)
 
     class SimpleMapState {
         val nodeNames: MutableList<String> = emptyList<String>().toMutableList()
@@ -351,7 +294,6 @@ sudo systemctl enable --now corda
             networkMapCert
         ).serialize()
     }
-
 
 
 }
