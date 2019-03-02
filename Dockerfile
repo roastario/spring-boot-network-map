@@ -1,4 +1,4 @@
-FROM openjdk:8-jdk-alpine
+FROM balenalib/raspberrypi3-alpine-openjdk:8-jdk
 VOLUME /tmp
 RUN apk --no-cache --update add bash
 RUN apk add curl
