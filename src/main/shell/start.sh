@@ -12,7 +12,7 @@ while [ ${EXIT_CODE} -gt 0 ]
 do
     sleep 2
     echo "Waiting for network map to start"
-    curl -s http://localhost:8080/network-map > /dev/null
+    wget -t 1 -O /dev/null http://localhost:8080/network-map
     let EXIT_CODE=$?
 done
 

@@ -1,8 +1,11 @@
-FROM balenalib/raspberrypi3-alpine-openjdk:8-jdk
-VOLUME /tmp
-RUN apk --no-cache --update add bash
-RUN apk add curl
-RUN mkdir -p /opt/corda
+FROM arm32v7/ubuntu:18.10
+RUN apt-get update \
+    && apt-get install -y wget \
+    && mkdir -p /opt/zulu \
+    && wget  -O /opt/zulu/zulu_jvm.tar.gz http://cdn.azul.com/zulu-embedded/bin/zulu8.36.0.152-ca-jdk1.8.0_202-linux_aarch32hf.tar.gz \
+    && cd /opt/zulu && tar -zxvf zulu_jvm.tar.gz && cd / \
+    && mkdir -p /opt/corda
+ENV PATH=$PATH:/opt/zulu/zulu8.36.0.152-ca-jdk1.8.0_202-linux_aarch32hf/bin
 COPY node.conf /opt/notaries/node.conf
 COPY corda.jar /opt/notaries/corda.jar
 
