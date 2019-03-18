@@ -7,20 +7,21 @@ import net.corda.nodeapi.internal.SignedNodeInfo
 import org.springframework.stereotype.Component
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.withLock
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
+import kotlin.concurrent.write
 
 @Component
 @MapBacked
 class MapNodeInfoRepository : NodeInfoRepository {
 
-    private val lock = ReentrantLock()
+    private val lock = ReentrantReadWriteLock()
 
     private val mapByName: ConcurrentMap<CordaX500Name, NodeInfoHolder> = ConcurrentHashMap()
     private val mapByHash: ConcurrentHashMap<SecureHash, NodeInfoHolder> = ConcurrentHashMap()
 
     override fun persistSignedNodeInfo(signedNodeInfo: SignedNodeInfo) {
-        lock.withLock {
+        lock.write {
             signedNodeInfo.verified().legalIdentities.forEach {
                 val name = it.name
                 val nodeInfoHolder = NodeInfoHolder(signedNodeInfo.raw.hash, signedNodeInfo, signedNodeInfo.serialize().bytes)
@@ -32,15 +33,15 @@ class MapNodeInfoRepository : NodeInfoRepository {
 
     override fun getSignedNodeInfo(hash: String): Pair<SignedNodeInfo, ByteArray>? {
         val parsedHash = SecureHash.parse(hash)
-        return lock.withLock { mapByHash[parsedHash]?.let { it.signedNodeInfo to it.byteRepresentation } }
+        return lock.read { mapByHash[parsedHash]?.let { it.signedNodeInfo to it.byteRepresentation } }
     }
 
     override fun getAllHashes(): Collection<SecureHash> {
-        return lock.withLock { mapByName.values.map { it.hash } }
+        return lock.read { mapByName.values.map { it.hash } }
     }
 
     override fun purgeAllPersistedSignedNodeInfos(): Int {
-        return lock.withLock {
+        return lock.write {
             mapByHash.clear()
             mapByName.size.also { mapByName.clear() }
         }

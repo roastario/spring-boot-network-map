@@ -32,7 +32,7 @@ devModeOptions{
 }
 EOT
 
-    java -jar ${CORDA_JAR_NAME} --just-generate-node-info
+    java -jar ${CORDA_JAR_NAME} generate-node-info
 
     cd ..
 
@@ -42,8 +42,6 @@ EOT
     cp build/libs/spring-boot-network-map-1.0-SNAPSHOT.jar ../nms.jar
     cd ..
 fi
-
-
 
 java -Djava.security.egd=file:/dev/urandom -jar nms.jar --nodesDirectoryUrl=file:notary/ &
 NMS_PID=$!
