@@ -109,6 +109,17 @@ class NetworkMapApi(
                 logger.info("found hash: " + it + " for contractClass: " + entry.key)
             }
         }
+
+        logger.info("Starting NMS with Parameters = NetworkParameters(\n" +
+                "            minimumPlatformVersion = ${minPlatformVersion.toInt()},\n" +
+                "            notaries = ${notaryInfoLoader.load()},\n" +
+                "            maxMessageSize = 10485760 * 10,\n" +
+                "            maxTransactionSize = 10485760 * 5,\n" +
+                "            modifiedTime = Instant.MIN,\n" +
+                "            epoch = 10,\n" +
+                "            whitelistedContractImplementations = $whiteList\n" +
+                "        )")
+
         val networkParams = NetworkParameters(
             minimumPlatformVersion = minPlatformVersion.toInt(),
             notaries = notaryInfoLoader.load(),

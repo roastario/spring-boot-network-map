@@ -18,3 +18,4 @@ COPY app.jar app.jar
 RUN mkdir -p /jars
 VOLUME ["/jars"]
 ENTRYPOINT ["/start.sh"]
+CMD ["--minimumPlatformVersion=4"]
