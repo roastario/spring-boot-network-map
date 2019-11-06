@@ -117,8 +117,9 @@ class NetworkMapApi(
                 "            whitelistedContractImplementations = $whiteList\n" +
                 "        )")
 
-        logger.info("using: ${networkMapCert.issuerX500Principal.name} as network map")
-        logger.info("using: ${doormanCert.issuerX500Principal.name} as doorman")
+        logger.info("using: ${networkMapCert.subjectX500Principal.name} as network map certName issued by ${networkMapCert.issuerX500Principal.name}")
+        logger.info("using: ${doormanCert.subjectX500Principal.name} as doorman certName issued by ${networkMapCert.issuerX500Principal.name}")
+
         val networkParams = NetworkParameters(
                 minimumPlatformVersion = minPlatformVersion.toInt(),
                 notaries = notaryInfoLoader.load(),
