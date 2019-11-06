@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 CORDA_JAR_NAME="corda.jar"
+DOORMAN_CN_TO_USE=${DOORMAN_CN:-BasicDoorman}
+NETWORKMAP_CN_TO_USE=${NETWORKMAP_CN:-BasicNetworkMap}
 
 if [[ ! -d notary ]]; then
   rm -rf notary
@@ -43,7 +45,7 @@ EOT
   cd ..
 fi
 
-java -Djava.security.egd=file:/dev/urandom -jar nms.jar --nodesDirectoryUrl=file:notary/ &
+java -Djava.security.egd=file:/dev/urandom -jar nms.jar --nodesDirectoryUrl=file:notary/ --doormanCN="${DOORMAN_CN_TO_USE}" --networkMapCN="${NETWORKMAP_CN_TO_USE}" &
 NMS_PID=$!
 
 let EXIT_CODE=255
