@@ -26,25 +26,25 @@ class CertificateUtils {
 
         val provider = BouncyCastleProvider()
 
-        fun createDevNetworkMapCa(rootCa: CertificateAndKeyPair): CertificateAndKeyPair {
+        fun createDevNetworkMapCa(rootCa: CertificateAndKeyPair, commonName: String = "BasicNetworkMap"): CertificateAndKeyPair {
             val keyPair = NetworkMapApi.generateKeyPair()
             val cert = X509Utilities.createCertificate(
                     CertificateType.NETWORK_MAP,
                     rootCa.certificate,
                     rootCa.keyPair,
-                    X500Principal("CN=BasicNetworkMap,O=R3 Ltd,L=London,C=GB"),
+                    X500Principal("CN=$commonName,O=R3 Ltd,L=London,C=GB"),
                     keyPair.public
             )
             return CertificateAndKeyPair(cert, keyPair)
         }
 
-        fun createDevDoormanCa(rootCa: CertificateAndKeyPair): CertificateAndKeyPair {
+        fun createDevDoormanCa(rootCa: CertificateAndKeyPair, commonName: String = "BasicDoorman"): CertificateAndKeyPair {
             val keyPair = NetworkMapApi.generateKeyPair()
             val cert = X509Utilities.createCertificate(
                     CertificateType.INTERMEDIATE_CA,
                     rootCa.certificate,
                     rootCa.keyPair,
-                    X500Principal("CN=BasicDoorman,O=R3 Ltd,L=London,C=GB"),
+                    X500Principal("CN=$commonName,O=R3 Ltd,L=London,C=GB"),
                     keyPair.public
             )
             return CertificateAndKeyPair(cert, keyPair)
@@ -62,7 +62,7 @@ class CertificateUtils {
             val jcaRequest = JcaPKCS10CertificationRequest(request)
             val type = CertificateType.NODE_CA
             val nameConstraints = NameConstraints(
-                    arrayOf (GeneralSubtree(GeneralName(
+                    arrayOf(GeneralSubtree(GeneralName(
                             GeneralName.directoryName,
                             CordaX500Name.parse(jcaRequest.subject.toString()).copy(commonName = null).toX500Name()))),
                     arrayOf()
