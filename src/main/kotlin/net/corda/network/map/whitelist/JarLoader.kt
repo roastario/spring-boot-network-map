@@ -45,6 +45,7 @@ class JarLoader(@Value("\${jars.location:/jars}") jarDir: String?) {
         override val hash: SecureHash by lazy(LazyThreadSafetyMode.NONE, file::hash)
         override fun scan(): List<ContractClassName> {
             val scanResult = ClassGraph()
+                    .enableClassInfo()
                     // A set of a single element may look odd, but if this is removed "Path" which itself is an `Iterable`
                     // is getting broken into pieces to scan individually, which doesn't yield desired effect.
                     .overrideClasspath(Collections.singleton(file))
