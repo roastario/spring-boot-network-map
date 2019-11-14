@@ -259,7 +259,7 @@ class NetworkMapApi(
         logger.info("Processing retrieval of network params for {$h}.")
         return if (SecureHash.parse(h) == signedNetworkParams.get().raw.hash) {
             ResponseEntity.ok().header("Cache-Control", "max-age=${ThreadLocalRandom.current().nextInt(10, 30)}")
-                    .body(signedNetworkParams.get().raw.bytes)
+                    .body(signedNetworkParams.get().serialize().bytes)
         } else {
             ResponseEntity.notFound().build()
         }
