@@ -144,6 +144,14 @@ class NetworkMapApi(
         signedNetworkParams.set(newParams.signWithCert(networkMapKeyPair.private, networkMapCert))
     }
 
+    @RequestMapping(path = ["network-map/bumpEpoch"], method = [RequestMethod.GET])
+    fun bumpEpoch() {
+        val currentSignedParams = this.signedNetworkParams.get()
+        val currentParams = currentSignedParams.verified()
+        val newParams = currentParams.copy(epoch = currentParams.epoch + 1)
+        signedNetworkParams.set(newParams.signWithCert(networkMapKeyPair.private, networkMapCert))
+    }
+
     @RequestMapping(path = ["network-map/publish"], method = [RequestMethod.POST])
     fun postNodeInfo(@RequestBody input: ByteArray): DeferredResult<ResponseEntity<String>> {
         logger.debug("Processing network-map/publish")
