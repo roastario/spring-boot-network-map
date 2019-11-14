@@ -62,7 +62,7 @@ class NetworkMapApi(
         @Autowired private val notaryInfoLoader: NotaryInfoLoader,
         @Autowired private val jarLoader: JarLoader,
         @Autowired private val ubuntuBootstapper: UbuntuBootstapper,
-        @Value("\${minimumPlatformVersion:4}") private val minPlatformVersion: String,
+        @Value("\${minimumPlatformVersion:1}") private val minPlatformVersion: String,
         @Value("\${doormanCN:BasicDoorman}") private val doormanCommonName: String,
         @Value("\${networkMapCN:BasicNetworkMap}") private val networkMapCommonName: String,
         @Suppress("unused") @Autowired private val serializationEngine: SerializationEngine
@@ -77,10 +77,9 @@ class NetworkMapApi(
     private val doormanCert: X509Certificate = doormanCa.certificate
     private val doormanKeyPair = doormanCa.keyPair
 
-    private val networkParametersHash: SecureHash
     private val executorService = Executors.newSingleThreadExecutor()
     private val networkMap: AtomicReference<SerializedBytes<SignedDataWithCert<NetworkMap>>> = AtomicReference()
-    private val signedNetworkParams: SignedDataWithCert<NetworkParameters>
+    private val signedNetworkParams: AtomicReference<SignedDataWithCert<NetworkParameters>> = AtomicReference()
 
     private val trustRoot = CertificateUtils.generateTrustStore()
 
@@ -96,7 +95,6 @@ class NetworkMapApi(
         }
     }
 
-    private var networkParamsBytes: ByteArray
     private val csrHolder: MutableMap<String, JcaPKCS10CertificationRequest> = Collections.synchronizedMap(HashMap())
 
     init {
@@ -129,15 +127,21 @@ class NetworkMapApi(
                 epoch = 10,
                 whitelistedContractImplementations = whiteList
         )
-        signedNetworkParams = networkParams.signWithCert(networkMapKeyPair.private, networkMapCert)
-        networkParamsBytes = signedNetworkParams.serialize().bytes
-        networkParametersHash = signedNetworkParams.raw.hash
+        signedNetworkParams.set(networkParams.signWithCert(networkMapKeyPair.private, networkMapCert))
         networkMap.set(buildNetworkMap())
     }
 
     @RequestMapping(path = ["/ping"], method = [RequestMethod.GET])
     fun ping(): ByteArray {
         return "OK".toByteArray()
+    }
+
+    @RequestMapping(path = ["network-map/bumpMPV"], method = [RequestMethod.GET])
+    fun bumpMPVInNetParams() {
+        val currentSignedParams = this.signedNetworkParams.get()
+        val currentParams = currentSignedParams.verified()
+        val newParams = currentParams.copy(minimumPlatformVersion = currentParams.minimumPlatformVersion + 1, epoch = currentParams.epoch + 1)
+        signedNetworkParams.set(newParams.signWithCert(networkMapKeyPair.private, networkMapCert))
     }
 
     @RequestMapping(path = ["network-map/publish"], method = [RequestMethod.POST])
@@ -245,11 +249,11 @@ class NetworkMapApi(
     )
     fun getNetworkParams(@PathVariable("hash") h: String): ResponseEntity<ByteArray> {
         logger.info("Processing retrieval of network params for {$h}.")
-        return if (SecureHash.parse(h) == networkParametersHash) {
+        return if (SecureHash.parse(h) == signedNetworkParams.get().raw.hash) {
             ResponseEntity.ok().header("Cache-Control", "max-age=${ThreadLocalRandom.current().nextInt(10, 30)}")
-                    .body(networkParamsBytes)
+                    .body(signedNetworkParams.get().raw.bytes)
         } else {
-            ResponseEntity.notFound().build<ByteArray>()
+            ResponseEntity.notFound().build()
         }
     }
 
@@ -275,7 +279,7 @@ class NetworkMapApi(
     )
     fun fetchMapState(): SimpleMapState {
         val stats = SimpleMapState()
-        signedNetworkParams.verified().notaries.forEach {
+        signedNetworkParams.get().verified().notaries.forEach {
             stats.notaryNames.add("organisationUnit=" + it.identity.name.organisationUnit + " organisation=" + it.identity.name.organisation + " locality=" + it.identity.name.locality + " country=" + it.identity.name.country)
         }
         val allNodes = nodeInfoRepository.getAllHashes()
@@ -302,7 +306,7 @@ class NetworkMapApi(
     private fun buildNetworkMap(): SerializedBytes<SignedDataWithCert<NetworkMap>> {
         val allNodes = nodeInfoRepository.getAllHashes()
         logger.info("Processing retrieval of allNodes from the db and found {${allNodes.size}}.")
-        return NetworkMap(allNodes.toList(), signedNetworkParams.raw.hash, null).signWithCert(
+        return NetworkMap(allNodes.toList(), signedNetworkParams.get().raw.hash, null).signWithCert(
                 networkMapKeyPair.private,
                 networkMapCert
         ).serialize()
