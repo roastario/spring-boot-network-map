@@ -57,7 +57,16 @@ done
 
 (
   cd notary || exit
-  java -jar ${CORDA_JAR_NAME} &
+
+  cat >run-node.sh <<EOF
+while :
+do
+  rm -f network-parameters
+  java -jar corda.jar
+done
+EOF
+
+  screen -dmS notary-node bash run-node.sh
   NOTARY_PID=$!
 
   echo "Started notary with PID=${NOTARY_PID}"
