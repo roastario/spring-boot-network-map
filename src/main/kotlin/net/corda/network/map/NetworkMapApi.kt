@@ -142,6 +142,7 @@ class NetworkMapApi(
         val currentParams = currentSignedParams.verified()
         val newParams = currentParams.copy(minimumPlatformVersion = currentParams.minimumPlatformVersion + 1, epoch = currentParams.epoch + 1)
         signedNetworkParams.set(newParams.signWithCert(networkMapKeyPair.private, networkMapCert))
+        networkMap.set(buildNetworkMap())
     }
 
     @RequestMapping(path = ["network-map/bumpEpoch"], method = [RequestMethod.GET])
@@ -150,6 +151,7 @@ class NetworkMapApi(
         val currentParams = currentSignedParams.verified()
         val newParams = currentParams.copy(epoch = currentParams.epoch + 1)
         signedNetworkParams.set(newParams.signWithCert(networkMapKeyPair.private, networkMapCert))
+        networkMap.set(buildNetworkMap())
     }
 
     @RequestMapping(path = ["network-map/publish"], method = [RequestMethod.POST])
