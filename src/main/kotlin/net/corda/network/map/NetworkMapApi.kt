@@ -120,7 +120,7 @@ class NetworkMapApi(
 
         val networkParams = NetworkParameters(
                 minimumPlatformVersion = minPlatformVersion.toInt(),
-                notaries = notaryInfoLoader.load(),
+                notaries = notaryInfoLoader.load().sortedBy { it.identity.name.toString() },
                 maxMessageSize = 10485760 * 10,
                 maxTransactionSize = 10485760 * 5,
                 modifiedTime = Instant.MIN,
@@ -140,7 +140,7 @@ class NetworkMapApi(
     fun bumpMPVInNetParams() {
         val currentSignedParams = this.signedNetworkParams.get()
         val currentParams = currentSignedParams.verified()
-        val newParams = currentParams.copy(minimumPlatformVersion = currentParams.minimumPlatformVersion + 1, epoch = currentParams.epoch + 1)
+        val newParams = currentParams.copy(minimumPlatformVersion = currentParams.minimumPlatformVersion + 1, epoch = currentParams.epoch + 1, notaries = notaryInfoLoader.load().sortedBy { it.identity.name.toString() })
         signedNetworkParams.set(newParams.signWithCert(networkMapKeyPair.private, networkMapCert))
         networkMap.set(buildNetworkMap())
     }
@@ -149,7 +149,7 @@ class NetworkMapApi(
     fun bumpEpoch() {
         val currentSignedParams = this.signedNetworkParams.get()
         val currentParams = currentSignedParams.verified()
-        val newParams = currentParams.copy(epoch = currentParams.epoch + 1)
+        val newParams = currentParams.copy(epoch = currentParams.epoch + 1, notaries = notaryInfoLoader.load().sortedBy { it.identity.name.toString() })
         signedNetworkParams.set(newParams.signWithCert(networkMapKeyPair.private, networkMapCert))
         networkMap.set(buildNetworkMap())
     }
