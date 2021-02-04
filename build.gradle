@@ -38,6 +38,10 @@ repositories {
         url "http://ci-artifactory.corda.r3cev.com/artifactory/corda-releases"
     }
 
+    maven {
+        url "http://ci-artifactory.corda.r3cev.com/artifactory/corda-dependencies"
+    }
+
     maven { url 'https://jitpack.io' }
 }
 
@@ -52,7 +56,7 @@ apply plugin: 'com.palantir.docker'
 
 ext {
     spring_version = '1.5.10.RELEASE'
-    corda_release_version = '4.0'
+    corda_release_version = '4.5.1'
     corda_group = 'net.corda'
     bouncycastle_version = '1.57'
 }
@@ -104,9 +108,9 @@ task copyCordaJar() {
     def cordaJarName = file(project.configurations.notaryRuntime.first()).name
     copy {
         from project.configurations.notaryRuntime.first()
-        into "${buildDir}"
+        into "${buildDir}/docker"
     }
-    file("${buildDir}/${cordaJarName}").renameTo("${buildDir}/corda.jar")
+    file("${buildDir}/docker/${cordaJarName}").renameTo("${buildDir}/docker/corda.jar")
 }
 
 
@@ -114,15 +118,23 @@ task copyNetworkMapJar() {
     def networkMapJarName = file(jar.archivePath).name
     copy {
         from jar.archivePath
-        into "${buildDir}"
+        into "${buildDir}/docker"
     }
-    file("${buildDir}/${networkMapJarName}").renameTo("${buildDir}/app.jar")
+    file("${buildDir}/docker/${networkMapJarName}").renameTo("${buildDir}/docker/app.jar")
 }
 
+task copyNotaryConfigs() {
+    copy{
+        from(new FileNameFinder().getFileNames(project.projectDir.absolutePath, "**/notaryconfigs/*.conf"))
+        into "${buildDir}/docker"
+    }
+}
 
-docker {
-    files 'src/main/shell/start.sh', 'src/main/resources/notary/node.conf', "${buildDir}/corda.jar", "${buildDir}/app.jar"
-    name "roastario/notary-and-network-map:" + "latest"
+task copyShell(){
+    copy{
+        from(new FileNameFinder().getFileNames(project.projectDir.absolutePath, "**/shell/start.sh"))
+        into "${buildDir}/docker"
+    }
 }
 
 tasks.dockerPrepare.dependsOn(build, jar, copyCordaJar, copyNetworkMapJar)
