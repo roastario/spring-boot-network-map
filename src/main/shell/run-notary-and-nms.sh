@@ -12,7 +12,7 @@ rm -rf spring-boot-network-map
   cd notary || exit
 
   if [[ ! -f ${CORDA_JAR_NAME} ]]; then
-    wget -O ${CORDA_JAR_NAME} https://ci-artifactory.corda.r3cev.com/artifactory/corda-releases/net/corda/corda/4.0/corda-4.0.jar
+    wget -O ${CORDA_JAR_NAME} https://ci-artifactory.corda.r3cev.com/artifactory/corda-releases/net/corda/corda/4.5.1/corda-4.5.1.jar
   fi
 
   cat >node.conf <<EOT

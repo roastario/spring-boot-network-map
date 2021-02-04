@@ -3,6 +3,7 @@
 package net.corda.network.map
 
 import net.corda.core.crypto.SecureHash
+import net.corda.core.crypto.sha256
 import net.corda.core.internal.SignedDataWithCert
 import net.corda.core.internal.signWithCert
 import net.corda.core.node.NetworkParameters
@@ -39,6 +40,7 @@ import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.time.Instant
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicReference
@@ -46,6 +48,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlin.collections.HashMap
 import kotlin.collections.set
+import kotlin.streams.toList
 
 
 val rootCa = DEV_ROOT_CA
@@ -58,14 +61,14 @@ val rootCa = DEV_ROOT_CA
  */
 @RestController
 class NetworkMapApi(
-        @Autowired @MapBacked private val nodeInfoRepository: NodeInfoRepository,
-        @Autowired private val notaryInfoLoader: NotaryInfoLoader,
-        @Autowired private val jarLoader: JarLoader,
-        @Autowired private val ubuntuBootstapper: UbuntuBootstapper,
-        @Value("\${minimumPlatformVersion:1}") private val minPlatformVersion: String,
-        @Value("\${doormanCN:BasicDoorman}") private val doormanCommonName: String,
-        @Value("\${networkMapCN:BasicNetworkMap}") private val networkMapCommonName: String,
-        @Suppress("unused") @Autowired private val serializationEngine: SerializationEngine
+    @Autowired @MapBacked private val nodeInfoRepository: NodeInfoRepository,
+    @Autowired private val notaryInfoLoader: NotaryInfoLoader,
+    @Autowired private val jarLoader: JarLoader,
+    @Autowired private val ubuntuBootstapper: UbuntuBootstapper,
+    @Value("\${minimumPlatformVersion:1}") private val minPlatformVersion: String,
+    @Value("\${doormanCN:BasicDoorman}") private val doormanCommonName: String,
+    @Value("\${networkMapCN:BasicNetworkMap}") private val networkMapCommonName: String,
+    @Suppress("unused") @Autowired private val serializationEngine: SerializationEngine
 ) {
 
     private val doormanCa = CertificateUtils.createDevDoormanCa(rootCa, doormanCommonName)
@@ -96,6 +99,7 @@ class NetworkMapApi(
     }
 
     private val csrHolder: MutableMap<String, JcaPKCS10CertificationRequest> = Collections.synchronizedMap(HashMap())
+    private val signedCSRHolder: ConcurrentHashMap<String, ByteArray> = ConcurrentHashMap()
 
     init {
         val whiteList = jarLoader.generateWhitelist()
@@ -105,27 +109,29 @@ class NetworkMapApi(
             }
         }
 
-        logger.info("Starting NMS with Parameters = NetworkParameters(\n" +
-                "            minimumPlatformVersion = ${minPlatformVersion.toInt()},\n" +
-                "            notaries = ${notaryInfoLoader.load()},\n" +
-                "            maxMessageSize = 10485760 * 10,\n" +
-                "            maxTransactionSize = 10485760 * 5,\n" +
-                "            modifiedTime = Instant.MIN,\n" +
-                "            epoch = 10,\n" +
-                "            whitelistedContractImplementations = $whiteList\n" +
-                "        )")
+        logger.info(
+            "Starting NMS with Parameters = NetworkParameters(\n" +
+                    "            minimumPlatformVersion = ${minPlatformVersion.toInt()},\n" +
+                    "            notaries = ${notaryInfoLoader.load()},\n" +
+                    "            maxMessageSize = 10485760 * 10,\n" +
+                    "            maxTransactionSize = 10485760 * 5,\n" +
+                    "            modifiedTime = Instant.MIN,\n" +
+                    "            epoch = 10,\n" +
+                    "            whitelistedContractImplementations = $whiteList\n" +
+                    "        )"
+        )
 
         logger.info("using: ${networkMapCert.subjectX500Principal.name} as network map certName issued by ${networkMapCert.issuerX500Principal.name}")
         logger.info("using: ${doormanCert.subjectX500Principal.name} as doorman certName issued by ${networkMapCert.issuerX500Principal.name}")
 
         val networkParams = NetworkParameters(
-                minimumPlatformVersion = minPlatformVersion.toInt(),
-                notaries = notaryInfoLoader.load().sortedBy { it.identity.name.toString() },
-                maxMessageSize = 10485760 * 10,
-                maxTransactionSize = 10485760 * 5,
-                modifiedTime = Instant.MIN,
-                epoch = 10,
-                whitelistedContractImplementations = whiteList
+            minimumPlatformVersion = minPlatformVersion.toInt(),
+            notaries = notaryInfoLoader.load().sortedBy { it.identity.name.toString() },
+            maxMessageSize = 10485760 * 10,
+            maxTransactionSize = 10485760 * 5,
+            modifiedTime = Instant.MIN,
+            epoch = 10,
+            whitelistedContractImplementations = whiteList
         )
         signedNetworkParams.set(networkParams.signWithCert(networkMapKeyPair.private, networkMapCert))
         networkMap.set(buildNetworkMap())
@@ -140,7 +146,10 @@ class NetworkMapApi(
     fun bumpMPVInNetParams() {
         val currentSignedParams = this.signedNetworkParams.get()
         val currentParams = currentSignedParams.verified()
-        val newParams = currentParams.copy(minimumPlatformVersion = currentParams.minimumPlatformVersion + 1, epoch = currentParams.epoch + 1, notaries = notaryInfoLoader.load().sortedBy { it.identity.name.toString() })
+        val newParams = currentParams.copy(
+            minimumPlatformVersion = currentParams.minimumPlatformVersion + 1,
+            epoch = currentParams.epoch + 1,
+            notaries = notaryInfoLoader.load().sortedBy { it.identity.name.toString() })
         signedNetworkParams.set(newParams.signWithCert(networkMapKeyPair.private, networkMapCert))
         networkMap.set(buildNetworkMap())
     }
@@ -172,17 +181,22 @@ class NetworkMapApi(
     @RequestMapping(path = ["truststore", "trustStore"], method = [RequestMethod.GET])
     fun getTrustStore(): ResponseEntity<ByteArray> {
         return ResponseEntity.ok()
-                .header("Content-Type", "application/octet-stream")
-                .header("Content-Disposition", "attachment; filename=\"network-root-truststore.jks\"")
-                .body(trustRoot)
+            .header("Content-Type", "application/octet-stream")
+            .header("Content-Disposition", "attachment; filename=\"network-root-truststore.jks\"")
+            .body(trustRoot)
     }
 
     @RequestMapping(path = ["certificate"], method = [RequestMethod.POST])
     fun submitCSR(@RequestBody input: ByteArray): DeferredResult<ResponseEntity<String>> {
         val csr = JcaPKCS10CertificationRequest(input)
         logger.info("Received A CSR: ${csr.publicKey}")
-        val id = BigInteger(128, Random()).toString(36)
+        val id = csr.subject.toString().toByteArray().sha256().toString()
         val result = DeferredResult<ResponseEntity<String>>()
+        if (csrHolder[id] != null) {
+            if (csr != (csrHolder[id])){
+                throw IllegalStateException("Duplicated CSR for ${csr.subject}")
+            }
+        }
         executorService.submit {
             csrHolder[id] = csr
             result.setResult(ResponseEntity.ok().body(id))
@@ -216,8 +230,8 @@ class NetworkMapApi(
 
         return zipBytes?.let {
             ResponseEntity.ok()
-                    .header("Content-Type", "application/octet-stream")
-                    .body(zipBytes)
+                .header("Content-Type", "application/octet-stream")
+                .body(zipBytes)
         } ?: ResponseEntity.notFound().build()
 
     }
@@ -230,9 +244,9 @@ class NetworkMapApi(
             ResponseEntity.notFound().build()
         } else {
             return ResponseEntity.ok()
-                    .contentLength(foundNodeInfo.second.size.toLong())
-                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                    .body(foundNodeInfo.second)
+                .contentLength(foundNodeInfo.second.size.toLong())
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .body(foundNodeInfo.second)
         }
 
     }
@@ -243,25 +257,25 @@ class NetworkMapApi(
         return if (networkMap.get() != null) {
             val networkMapBytes = networkMap.get().bytes
             ResponseEntity.ok()
-                    .contentLength(networkMapBytes.size.toLong())
-                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                    .header("Cache-Control", "max-age=${ThreadLocalRandom.current().nextInt(10, 30)}")
-                    .body(networkMapBytes)
+                .contentLength(networkMapBytes.size.toLong())
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .header("Cache-Control", "max-age=${ThreadLocalRandom.current().nextInt(10, 30)}")
+                .body(networkMapBytes)
         } else {
             ResponseEntity(HttpStatus.NOT_FOUND)
         }
     }
 
     @RequestMapping(
-            method = [RequestMethod.GET],
-            path = ["network-map/network-parameters/{hash}"],
-            produces = [MediaType.APPLICATION_OCTET_STREAM_VALUE]
+        method = [RequestMethod.GET],
+        path = ["network-map/network-parameters/{hash}"],
+        produces = [MediaType.APPLICATION_OCTET_STREAM_VALUE]
     )
     fun getNetworkParams(@PathVariable("hash") h: String): ResponseEntity<ByteArray> {
         logger.info("Processing retrieval of network params for {$h}.")
         return if (SecureHash.parse(h) == signedNetworkParams.get().raw.hash) {
             ResponseEntity.ok().header("Cache-Control", "max-age=${ThreadLocalRandom.current().nextInt(10, 30)}")
-                    .body(signedNetworkParams.get().serialize().bytes)
+                .body(signedNetworkParams.get().serialize().bytes)
         } else {
             ResponseEntity.notFound().build()
         }
@@ -270,9 +284,9 @@ class NetworkMapApi(
 
     @ResponseBody
     @RequestMapping(
-            method = [RequestMethod.GET],
-            value = ["network-map/reset-persisted-nodes"],
-            produces = [MediaType.APPLICATION_JSON_VALUE]
+        method = [RequestMethod.GET],
+        value = ["network-map/reset-persisted-nodes"],
+        produces = [MediaType.APPLICATION_JSON_VALUE]
     )
     fun resetPersistedNodes(): ResponseEntity<String> {
         val result = nodeInfoRepository.purgeAllPersistedSignedNodeInfos()
@@ -283,9 +297,9 @@ class NetworkMapApi(
 
     @ResponseBody
     @RequestMapping(
-            method = [RequestMethod.GET],
-            value = ["network-map/map-stats"],
-            produces = [MediaType.APPLICATION_JSON_VALUE]
+        method = [RequestMethod.GET],
+        value = ["network-map/map-stats"],
+        produces = [MediaType.APPLICATION_JSON_VALUE]
     )
     fun fetchMapState(): SimpleMapState {
         val stats = SimpleMapState()
@@ -304,7 +318,8 @@ class NetworkMapApi(
     }
 
     @GetMapping("install.sh")
-    fun installScript(@RequestHeader(value = "Host") host: String): ResponseEntity<String> = ResponseEntity(ubuntuBootstapper.installScript(host), HttpStatus.OK)
+    fun installScript(@RequestHeader(value = "Host") host: String): ResponseEntity<String> =
+        ResponseEntity(ubuntuBootstapper.installScript(host), HttpStatus.OK)
 
     class SimpleMapState {
         val nodeNames: MutableList<String> = emptyList<String>().toMutableList()
@@ -317,8 +332,8 @@ class NetworkMapApi(
         val allNodes = nodeInfoRepository.getAllHashes()
         logger.info("Processing retrieval of allNodes from the db and found {${allNodes.size}}.")
         return NetworkMap(allNodes.toList(), signedNetworkParams.get().raw.hash, null).signWithCert(
-                networkMapKeyPair.private,
-                networkMapCert
+            networkMapKeyPair.private,
+            networkMapCert
         ).serialize()
     }
 
