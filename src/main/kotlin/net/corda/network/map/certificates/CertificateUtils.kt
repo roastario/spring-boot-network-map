@@ -1,11 +1,14 @@
 package net.corda.network.map.certificates
 
+import net.corda.core.CordaOID
 import net.corda.core.identity.CordaX500Name
+import net.corda.core.internal.CertRole
 import net.corda.core.internal.toX500Name
 import net.corda.network.map.NetworkMapApi
 import net.corda.nodeapi.internal.DEV_CA_TRUST_STORE_PASS
 import net.corda.nodeapi.internal.DEV_ROOT_CA
 import net.corda.nodeapi.internal.crypto.*
+import org.bouncycastle.asn1.ASN1ObjectIdentifier
 import org.bouncycastle.asn1.x509.GeneralName
 import org.bouncycastle.asn1.x509.GeneralSubtree
 import org.bouncycastle.asn1.x509.NameConstraints
@@ -60,7 +63,12 @@ class CertificateUtils {
         fun createAndSignNodeCACerts(caCertAndKey: CertificateAndKeyPair,
                                      request: PKCS10CertificationRequest): X509Certificate {
             val jcaRequest = JcaPKCS10CertificationRequest(request)
-            val type = CertificateType.NODE_CA
+            val type = when (jcaRequest.attributes.singleOrNull {
+                it.attrType == ASN1ObjectIdentifier(CordaOID.X509_EXTENSION_CORDA_ROLE)
+            }?.attrValues?.objects?.nextElement()) {
+                CertRole.SERVICE_IDENTITY.toASN1Primitive() -> CertificateType.SERVICE_IDENTITY
+                else -> CertificateType.NODE_CA
+            }
             val nameConstraints = NameConstraints(
                     arrayOf(GeneralSubtree(GeneralName(
                             GeneralName.directoryName,
