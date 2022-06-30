@@ -1,0 +1,14 @@
+FROM openjdk:8-jdk-alpine
+ARG NOTARY_NAME
+VOLUME /tmp
+RUN apk --no-cache --update add bash
+RUN apk add curl
+RUN mkdir -p /opt/corda
+COPY corda.jar /opt/notaries/corda.jar
+COPY node.conf /opt/notaries/node.conf
+RUN sed -i "s/NOTARY_NAME_PLACEHOLDER/$NOTARY_NAME/g" /opt/notaries/node.conf
+
+WORKDIR /opt/notaries
+RUN export NETWORK_SERVICES_URL=http://localhost PUBLIC_ADDRESS=localhost && java -jar /opt/notaries/corda.jar run-migration-scripts --core-schemas --app-schemas && java -jar /opt/notaries/corda.jar --just-generate-node-info
+
+CMD ["java", "-jar", "corda.jar", "--log-to-console"]
