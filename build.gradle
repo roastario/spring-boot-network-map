@@ -78,7 +78,7 @@ dependencies {
     testCompile "org.jetbrains.kotlin:kotlin-test-junit"
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
 
-    notaryRuntime group: corda_group, name: 'corda', version: corda_release_version
+    notaryRuntime group: corda_group, name: 'corda', version: "4.8.1"
 }
 
 compileKotlin {

@@ -6,8 +6,8 @@ RUN mkdir -p /opt/corda
 COPY node.conf /opt/notaries/node.conf
 COPY corda.jar /opt/notaries/corda.jar
 
-WORKDIR /opt/corda
-RUN export PUBLIC_ADDRESS=localhost && cd /opt/corda && java -jar /opt/notaries/corda.jar --just-generate-node-info --base-directory=/opt/notaries
+WORKDIR /opt/notaries
+RUN export NETWORK_SERVICES_URL=http://localhost PUBLIC_ADDRESS=localhost && java -jar /opt/notaries/corda.jar run-migration-scripts --core-schemas --app-schemas && java -jar /opt/notaries/corda.jar --just-generate-node-info
 WORKDIR /
 
 COPY start.sh start.sh
