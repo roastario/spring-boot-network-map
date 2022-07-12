@@ -70,7 +70,7 @@ dependencies {
     // Spring boot dependencies
     compile group: 'org.springframework.boot', name: 'spring-boot-starter-web', version: spring_version
     compile group: corda_group, name: 'corda-node-api', version: corda_release_version
-    compile group: 'org.xerial', name: 'sqlite-jdbc', version: '3.21.0.1'
+    compile group: 'org.xerial', name: 'sqlite-jdbc', version: '3.34.0'
     compile group: 'commons-io', name: 'commons-io', version: '2.6'
     compile group: "com.typesafe", name: "config", version: typesafe_config_version
     compile group: 'io.github.classgraph', name: 'classgraph', version: '4.4.12'
@@ -82,7 +82,7 @@ dependencies {
     testCompile "org.jetbrains.kotlin:kotlin-test-junit"
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
 
-    notaryRuntime group: corda_group, name: 'corda', version: corda_release_version
+    notaryRuntime group: corda_group, name: 'corda', version: "4.8.1"
 }
 
 compileKotlin {

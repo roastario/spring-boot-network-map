@@ -16,6 +16,7 @@ import net.corda.network.map.certificates.CertificateUtils
 import net.corda.network.map.notaries.NotaryInfoLoader
 import net.corda.network.map.repository.MapBacked
 import net.corda.network.map.repository.NodeInfoRepository
+import net.corda.network.map.repository.SqlLiteBacked
 import net.corda.network.map.whitelist.JarLoader
 import net.corda.nodeapi.internal.DEV_ROOT_CA
 import net.corda.nodeapi.internal.SignedNodeInfo
@@ -61,7 +62,7 @@ val rootCa = DEV_ROOT_CA
  */
 @RestController
 class NetworkMapApi(
-    @Autowired @MapBacked private val nodeInfoRepository: NodeInfoRepository,
+    @Autowired @SqlLiteBacked private val nodeInfoRepository: NodeInfoRepository,
     @Autowired private val notaryInfoLoader: NotaryInfoLoader,
     @Autowired private val jarLoader: JarLoader,
     @Autowired private val ubuntuBootstapper: UbuntuBootstapper,
